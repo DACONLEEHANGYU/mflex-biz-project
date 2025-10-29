@@ -523,43 +523,55 @@
 
   // Provider 함수들
   const getNodeRelationships = (nodeId) => {
-    // 🔥 해당 노드가 복합구성용어의 자식인지 확인
     const node = nodes.value.find((n) => n.id === nodeId);
-    if (!node || !node.data.isCompositeChild) {
-      // 🔥 일반 노드: 모든 관계 반환
-      return edges.value.filter(
-        (edge) => edge.source === nodeId || edge.target === nodeId
+
+    console.log('🔍 [getNodeRelationships] 관계 필터링 시작:', {
+      nodeId,
+      termName: node?.data?.termName,
+      isCompositeChild: node?.data?.isCompositeChild,
+    });
+
+    // 🔥 해당 노드와 연결된 모든 엣지 필터링
+    let relationships = edges.value.filter(
+      (edge) => edge.source === nodeId || edge.target === nodeId
+    );
+
+    console.log(
+      `📊 [getNodeRelationships] 전체 연결된 엣지: ${relationships.length}개`
+    );
+
+    // 🔥 복합구성용어 자식 노드인 경우: 내부 자식 간 관계 제외
+    if (node?.data?.isCompositeChild) {
+      const parentNodeId = node.parentNode;
+
+      console.log('🔥 [getNodeRelationships] 복합구성용어 자식 - 필터링 적용');
+      console.log(`   부모 노드 ID: ${parentNodeId}`);
+
+      relationships = relationships.filter((edge) => {
+        const sourceNode = nodes.value.find((n) => n.id === edge.source);
+        const targetNode = nodes.value.find((n) => n.id === edge.target);
+
+        // 🔥 소스/타겟이 모두 같은 부모의 자식인지 확인
+        const isBothCompositeChildren =
+          sourceNode?.data.isCompositeChild &&
+          targetNode?.data.isCompositeChild &&
+          sourceNode?.parentNode === parentNodeId &&
+          targetNode?.parentNode === parentNodeId;
+
+        if (isBothCompositeChildren) {
+          console.log(`   ⏭️ 내부 자식 간 엣지 제외: ${edge.id}`);
+          return false; // 같은 복합구성용어 내부 자식 간 관계 제외
+        }
+
+        return true;
+      });
+
+      console.log(
+        `✅ [getNodeRelationships] 필터링 후: ${relationships.length}개`
       );
     }
 
-    // 🔥 복합구성용어 자식 노드: 순차적 소속관계 엣지 제외
-    return edges.value.filter((edge) => {
-      // 해당 노드와 연결된 엣지인지 확인
-      if (edge.source !== nodeId && edge.target !== nodeId) {
-        return false;
-      }
-
-      // 🔥 순차적 소속관계인지 확인
-      const isSequentialComposition =
-        edge.data?.currentRelation?.relType === 'COMPOSITION' &&
-        edge.data?.currentRelation?.rel_expln?.includes('순차적 소속관계');
-
-      // 🔥 같은 복합구성용어 내부의 자식들끼리의 엣지인지 확인
-      const sourceNode = nodes.value.find((n) => n.id === edge.source);
-      const targetNode = nodes.value.find((n) => n.id === edge.target);
-
-      const isBothCompositeChildren =
-        sourceNode?.data.isCompositeChild &&
-        targetNode?.data.isCompositeChild &&
-        sourceNode?.parentNode === targetNode?.parentNode;
-
-      // 🔥 순차적 소속관계이거나 같은 부모의 자식끼리 연결된 엣지는 제외
-      if (isSequentialComposition || isBothCompositeChildren) {
-        return false;
-      }
-
-      return true;
-    });
+    return relationships;
   };
 
   provide('connectingState', connectingState);
