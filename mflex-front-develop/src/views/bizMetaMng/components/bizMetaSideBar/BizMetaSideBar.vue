@@ -115,6 +115,17 @@
 
               <div class="card-actions">
                 <button
+                  class="relation-button"
+                  @click.stop="showTermRelations(term)"
+                  title="관계 조회"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z"
+                    />
+                  </svg>
+                </button>
+                <button
                   class="delete-button"
                   @click.stop="deleteTerm(term.termId)"
                   :disabled="isDeleting"
@@ -325,6 +336,73 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 🔥 관계 조회 모달 (VueFlow 기반) -->
+    <Teleport to="body">
+      <div
+        v-if="relationModal.visible"
+        class="relation-modal-overlay"
+        @click.self="closeRelationModal"
+      >
+        <div class="relation-modal-flow">
+          <!-- 모달 헤더 -->
+          <div class="relation-modal-header">
+            <div class="modal-title-section">
+              <h3 class="modal-title">{{ relationModal.term?.termName }}</h3>
+              <span
+                class="modal-type-badge"
+                :class="getTermTypeClass(relationModal.term?.termType)"
+              >
+                {{ getTermTypeText(relationModal.term?.termType) }}
+              </span>
+            </div>
+            <button class="modal-close-button" @click="closeRelationModal">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- VueFlow 영역 -->
+          <div class="relation-modal-body-flow">
+            <VueFlow
+              v-if="relationModal.visible && relationGraphNodes.length > 0"
+              :nodes="relationGraphNodes"
+              :edges="relationGraphEdges"
+              :fit-view-on-init="true"
+              :nodes-draggable="true"
+              :nodes-connectable="false"
+              :elements-selectable="false"
+              :min-zoom="0.3"
+              :max-zoom="1.5"
+              :default-viewport="{ zoom: 0.8, x: 0, y: 0 }"
+            >
+              <!-- 노드 타입 정의 -->
+              <template #node-termNode="{ data, id }">
+                <TermNode :data="data" :id="id" @delete="() => {}" @connect-start="() => {}" @connect-end="() => {}" />
+              </template>
+
+              <!-- 커스텀 엣지 타입 정의 -->
+              <template #edge-relationshipEdge="edgeProps">
+                <RelationshipEdge
+                  v-bind="edgeProps"
+                  @edge-click="() => {}"
+                  @relation-changed="() => {}"
+                />
+              </template>
+            </VueFlow>
+
+            <!-- 관계가 없는 경우 -->
+            <div v-if="relationGraphNodes.length === 0" class="relation-empty">
+              <div class="empty-icon">🔗</div>
+              <p>관계가 있는 용어가 없습니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -339,6 +417,12 @@
 
   import { useBizMetaStore } from '@/stores/bizMeta';
   import { storeToRefs } from 'pinia';
+
+  // 🔥 VueFlow 관련 import
+  import { VueFlow } from '@vue-flow/core';
+  import { Position } from '@vue-flow/core';
+  import TermNode from '@/views/bizMetaMng/components/bizMetaFlow/TermNode.vue';
+  import RelationshipEdge from '@/views/bizMetaMng/components/bizMetaFlow/RelationshipEdge.vue';
 
   const bizMetaStore = useBizMetaStore();
 
@@ -378,6 +462,12 @@
 
   let tooltipTimeout = null;
   let hideTooltipTimeout = null;
+
+  // 🔥 관계 조회 모달 상태 관리
+  const relationModal = ref({
+    visible: false,
+    term: null,
+  });
 
   // 🔥 툴팁 표시 함수 (수정)
   const showTooltip = (event, term) => {
@@ -933,6 +1023,22 @@
     }
   };
 
+  // 🔥 관계 조회 모달 함수
+  const showTermRelations = (term) => {
+    console.log('관계 조회:', term);
+    relationModal.value = {
+      visible: true,
+      term: { ...term },
+    };
+  };
+
+  const closeRelationModal = () => {
+    relationModal.value = {
+      visible: false,
+      term: null,
+    };
+  };
+
   // 🔥 유틸리티 함수
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -960,6 +1066,196 @@
     };
     return classMap[termType] || 'general';
   };
+
+  // 🔥 관계 그래프 노드 생성
+  const relationGraphNodes = computed(() => {
+    if (!relationModal.value.term) return [];
+
+    const term = relationModal.value.term;
+    const nodes = [];
+    const nodeMap = new Map(); // termId -> node 매핑
+
+    // 중앙 노드 (선택된 용어)
+    const centerNode = {
+      id: `term-${term.termId}`,
+      type: 'termNode',
+      position: { x: 400, y: 300 },
+      data: {
+        termId: term.termId,
+        termName: term.termName,
+        termExplain: term.termExplain,
+        termType: term.termType,
+        owner: term.owner,
+      },
+    };
+    nodes.push(centerNode);
+    nodeMap.set(term.termId, centerNode);
+
+    let childIndex = 0;
+    let parentIndex = 0;
+    let passiveIndex = 0;
+
+    // 복합구성용어 자식들 추가 (아래쪽)
+    if (term.compositeChildren && term.compositeChildren.length > 0) {
+      term.compositeChildren.forEach((child, index) => {
+        const angle = (index - (term.compositeChildren.length - 1) / 2) * 0.3;
+        const radius = 250;
+        const x = 400 + Math.sin(angle) * radius;
+        const y = 300 + 250 + Math.abs(Math.cos(angle)) * 50;
+
+        const childNode = {
+          id: `term-${child.termId}`,
+          type: 'termNode',
+          position: { x, y },
+          data: {
+            termId: child.termId,
+            termName: child.termName,
+            termExplain: child.termExplain,
+            termType: child.termType,
+            owner: child.owner,
+          },
+        };
+        nodes.push(childNode);
+        nodeMap.set(child.termId, childNode);
+        childIndex++;
+      });
+    }
+
+    // asParent 관계 노드들 추가 (오른쪽)
+    if (term.relations?.asParent && term.relations.asParent.length > 0) {
+      // passiveTermId로 노드 생성 (중복 제거)
+      const uniquePassiveTermIds = [
+        ...new Set(term.relations.asParent.map((rel) => rel.passiveTermId)),
+      ];
+
+      uniquePassiveTermIds.forEach((passiveTermId, index) => {
+        if (nodeMap.has(passiveTermId)) return; // 이미 존재하면 스킵
+
+        const angle = (index - (uniquePassiveTermIds.length - 1) / 2) * 0.5;
+        const radius = 300;
+        const x = 400 + 350;
+        const y = 300 + Math.sin(angle) * radius;
+
+        const relNode = {
+          id: `term-${passiveTermId}`,
+          type: 'termNode',
+          position: { x, y },
+          data: {
+            termId: passiveTermId,
+            termName: `용어 ${passiveTermId}`,
+            termExplain: '',
+            termType: 'GENERAL',
+            owner: '',
+          },
+        };
+        nodes.push(relNode);
+        nodeMap.set(passiveTermId, relNode);
+        parentIndex++;
+      });
+    }
+
+    // asPassive 관계 노드들 추가 (왼쪽)
+    if (term.relations?.asPassive && term.relations.asPassive.length > 0) {
+      // parentTermId로 노드 생성 (중복 제거)
+      const uniqueParentTermIds = [
+        ...new Set(term.relations.asPassive.map((rel) => rel.parentTermId)),
+      ];
+
+      uniqueParentTermIds.forEach((parentTermId, index) => {
+        if (nodeMap.has(parentTermId)) return; // 이미 존재하면 스킵
+
+        const angle = (index - (uniqueParentTermIds.length - 1) / 2) * 0.5;
+        const radius = 300;
+        const x = 400 - 350;
+        const y = 300 + Math.sin(angle) * radius;
+
+        const relNode = {
+          id: `term-${parentTermId}`,
+          type: 'termNode',
+          position: { x, y },
+          data: {
+            termId: parentTermId,
+            termName: `용어 ${parentTermId}`,
+            termExplain: '',
+            termType: 'GENERAL',
+            owner: '',
+          },
+        };
+        nodes.push(relNode);
+        nodeMap.set(parentTermId, relNode);
+        passiveIndex++;
+      });
+    }
+
+    return nodes;
+  });
+
+  // 🔥 관계 그래프 엣지 생성
+  const relationGraphEdges = computed(() => {
+    if (!relationModal.value.term) return [];
+
+    const term = relationModal.value.term;
+    const edges = [];
+
+    // 복합구성용어 자식 엣지
+    if (term.compositeChildren && term.compositeChildren.length > 0) {
+      term.compositeChildren.forEach((child) => {
+        edges.push({
+          id: `edge-composite-${term.termId}-${child.termId}`,
+          source: `term-${term.termId}`,
+          target: `term-${child.termId}`,
+          type: 'relationshipEdge',
+          sourceHandle: `term-${term.termId}-bottom-source`,
+          targetHandle: `term-${child.termId}-top-target`,
+          data: {
+            relationshipType: 'COMPOSITION',
+            description: '복합구성용어 관계',
+            isCompositeChild: false,
+          },
+        });
+      });
+    }
+
+    // asParent 관계 엣지
+    if (term.relations?.asParent && term.relations.asParent.length > 0) {
+      term.relations.asParent.forEach((rel) => {
+        edges.push({
+          id: `edge-parent-${rel.termRelId}`,
+          source: `term-${term.termId}`,
+          target: `term-${rel.passiveTermId}`,
+          type: 'relationshipEdge',
+          sourceHandle: `term-${term.termId}-right-source`,
+          targetHandle: `term-${rel.passiveTermId}-left-target`,
+          data: {
+            relationshipType: rel.relType,
+            description: rel.rel_expln || '',
+            isCompositeChild: false,
+          },
+        });
+      });
+    }
+
+    // asPassive 관계 엣지
+    if (term.relations?.asPassive && term.relations.asPassive.length > 0) {
+      term.relations.asPassive.forEach((rel) => {
+        edges.push({
+          id: `edge-passive-${rel.termRelId}`,
+          source: `term-${rel.parentTermId}`,
+          target: `term-${term.termId}`,
+          type: 'relationshipEdge',
+          sourceHandle: `term-${rel.parentTermId}-right-source`,
+          targetHandle: `term-${term.termId}-left-target`,
+          data: {
+            relationshipType: rel.relType,
+            description: rel.rel_expln || '',
+            isCompositeChild: false,
+          },
+        });
+      });
+    }
+
+    return edges;
+  });
 
   watch(isUpdate, (newVal) => {
     if (newVal) {
@@ -1276,6 +1572,30 @@
     display: flex;
     gap: 3px;
     flex-shrink: 0;
+  }
+
+  .relation-button {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    &:hover {
+      background: #eff6ff;
+      color: #3b82f6;
+    }
   }
 
   .delete-button {
@@ -1793,6 +2113,181 @@
         width: 10px;
         height: 10px;
       }
+    }
+  }
+
+  // 🔥 관계 조회 모달 스타일 (VueFlow 기반)
+  .relation-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    animation: overlayFadeIn 0.2s ease-out;
+  }
+
+  @keyframes overlayFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .relation-modal-flow {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 90vw;
+    max-width: 1200px;
+    height: 80vh;
+    max-height: 800px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideIn 0.3s ease-out;
+  }
+
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .relation-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  }
+
+  .modal-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    word-break: break-word;
+  }
+
+  .modal-type-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    flex-shrink: 0;
+
+    &.general {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    &.composite {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    &.standard {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    &.non-standard {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+  }
+
+  .modal-close-button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+  }
+
+  .relation-modal-body-flow {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #f8fafc;
+  }
+
+  // VueFlow 컨테이너 스타일
+  .relation-modal-body-flow :deep(.vue-flow) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .relation-modal-body-flow :deep(.vue-flow__background) {
+    background-color: #f8fafc;
+  }
+
+  .relation-modal-body-flow :deep(.vue-flow__minimap) {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+
+  .relation-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: #94a3b8;
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
     }
   }
 </style>
