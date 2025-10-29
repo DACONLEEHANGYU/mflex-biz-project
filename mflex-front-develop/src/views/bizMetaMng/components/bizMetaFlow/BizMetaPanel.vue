@@ -3559,7 +3559,6 @@
     }
   };
 
-  // 🔥 handleDrop 수정 (자식 노드 isCompositeChild 플래그 추가)
   const handleDrop = async (event) => {
     event.preventDefault();
 
@@ -3572,6 +3571,57 @@
         console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📦 새 노드 드롭:', dragData.termData);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+        // 🔥 동일한 termId를 가진 모든 노드 찾기
+        const existingNodes = nodes.value.filter(
+          (node) => node.data.termId === dragData.termData.termId
+        );
+
+        console.log(
+          `🔍 동일한 termId를 가진 노드 수: ${existingNodes.length}개`
+        );
+
+        if (existingNodes.length > 0) {
+          // 🔥 복합구성용어 자식 노드 확인
+          const compositeChildNodes = existingNodes.filter(
+            (node) => node.data.isCompositeChild === true
+          );
+
+          // 🔥 일반 노드 확인
+          const generalNodes = existingNodes.filter(
+            (node) => node.data.isCompositeChild !== true
+          );
+
+          console.log(`   복합구성용어 자식: ${compositeChildNodes.length}개`);
+          console.log(`   일반 노드: ${generalNodes.length}개`);
+
+          // 🔥 복합구성용어 자식이 있고, 일반 노드도 1개 이상 존재하면 차단
+          if (compositeChildNodes.length > 0 && generalNodes.length >= 1) {
+            alert(
+              `'${dragData.termData.termName}' 노드는 이미 복합구성용어 자식과 일반 노드로 존재합니다.\n추가로 배치할 수 없습니다.`
+            );
+            console.log(
+              `⚠️ 중복 차단: 복합구성용어 자식 ${compositeChildNodes.length}개 + 일반 노드 ${generalNodes.length}개 존재`
+            );
+            return;
+          }
+
+          // 🔥 복합구성용어 자식이 없고, 일반 노드만 존재하면 차단
+          if (compositeChildNodes.length === 0 && generalNodes.length >= 1) {
+            alert(
+              `'${dragData.termData.termName}' 노드는 이미 패널에 존재합니다.`
+            );
+            console.log(
+              `⚠️ 중복 차단: 일반 노드 ${generalNodes.length}개 존재`
+            );
+            return;
+          }
+
+          // 🔥 복합구성용어 자식만 있고, 일반 노드가 없으면 허용
+          if (compositeChildNodes.length > 0 && generalNodes.length === 0) {
+            console.log('✅ 복합구성용어 자식만 존재 - 일반 노드로 추가 허용');
+          }
+        }
 
         const containerRect = vueFlowContainer.value.getBoundingClientRect();
         const position = {
@@ -3602,7 +3652,7 @@
           },
         });
 
-        // 🔥 부모 노드 생성
+        // 🔥 부모 노드 생성 (일반 노드로 생성 - isCompositeChild: false)
         const parentNode = {
           id: `term-${nodeIdCounter++}`,
           type: 'termNode',
@@ -3626,6 +3676,7 @@
             isFromSidebar: true,
             isParent: isComposite,
             isTopLevelParent: isComposite,
+            isCompositeChild: false, // 🔥 일반 노드로 생성
           },
         };
 
@@ -3667,6 +3718,7 @@
           termId: parentNode.data.termId,
           termName: parentNode.data.termName,
           isComposite: isComposite,
+          isCompositeChild: false,
           style: parentNode.style,
         });
 
@@ -3737,8 +3789,8 @@
                 isCompositeChild: true,
                 order: compositeChild.sortOrder || index + 1,
                 parentNode: parentNode.id,
-                compositeId: compositeChild.compositeId, // 🔥 API 응답에서 가져온 값
-                termRelId: compositeChild.termRelId, // 🔥 API 응답에서 가져온 값
+                compositeId: compositeChild.compositeId,
+                termRelId: compositeChild.termRelId,
               },
             };
 
