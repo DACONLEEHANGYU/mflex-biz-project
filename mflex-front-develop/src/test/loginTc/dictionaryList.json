@@ -1,0 +1,16 @@
+[
+  {
+    "metaMngInstId": 2,
+    "userId": "admin",
+    "dctnryId": 3,
+    "dctnryNm": "통합정보시스템 표준사전",
+    "bscStngYn": "Y"
+  },
+  {
+    "metaMngInstId": 2,
+    "userId": "admin",
+    "dctnryId": 4,
+    "dctnryNm": "인사급여시스템 표준사전",
+    "bscStngYn": "N"
+  }
+]

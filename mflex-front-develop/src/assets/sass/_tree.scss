@@ -1,0 +1,658 @@
+.tree{
+    font-size: 13px;
+    font-family: "Noto Sans KR", sans-serif, "맑은고딕", "malgun gothic",
+        "AppleGothic", "돋움", "dotum", Helvetica, Arial;
+    color: #444;
+    font-weight: 400;
+}
+.input-wrapper{
+    font-size: 13px;
+    margin-left: 3px;
+}
+
+.node-in{
+    background-color: #52E692;
+}
+.node-under{
+    border-bottom: 10px solid  #5C6BC0;
+    //border-radius: 50%;
+    //margin-bottom: 50px;
+}
+.node-over{
+    border-top: 10px solid  #5C6BC0;
+}
+
+.node-input,
+.node-text{
+    font-size: 13px;
+    font-family: "Noto Sans KR", sans-serif, "맑은고딕", "malgun gothic",
+        "AppleGothic", "돋움", "dotum", Helvetica, Arial;
+    color: #444;
+    font-weight: 400;
+}
+.node-wrapper:focus{
+    background: none;
+}
+.tree-area {
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 10px 5px;
+    white-space: nowrap;    
+
+    &::-webkit-scrollbar-track {
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+        background-color: #eee;
+    }
+
+    &::-webkit-scrollbar {
+        width: 6px;
+        background-color: #eee;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: #727272;
+    }
+
+    .tree-level {
+        .tree-level {
+            padding-left: 20px !important;
+        }
+    }
+
+    .tree-minus {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        background: url(../images/icon_tree_minus.png) no-repeat 50%;
+        background-size: 16px auto;
+        opacity: 0.6;
+    }
+
+    .tree-plus {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        background: url(../images/icon_tree_plus.png) no-repeat 50%;
+        background-size: 16px auto;
+        opacity: 0.6;
+    }
+
+    .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        // width: 18px;
+        // height: 15px;
+        // transform: translateY(-3px);
+        color: #fff;
+        font-size: 12px;
+        font-style: normal;
+        height: 20px;
+        border-radius: 3px;
+        // &.root {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 16px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_root.png) no-repeat 50%;
+        //         margin-left: 2px;
+        //         background-size: 20px auto;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.group {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background: url(../images/icon_tree_folder.png) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.cameraGroup {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background: url(../images/icon_tree_cameraGroup.png) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.camera {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background: url(../images/icon_tree_camera.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // &.non-camera {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background-color: red;
+        //         background-color: #9B9B9B;
+        //         mask: url(../images/icon_tree_noncamera.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             opacity: 0.7;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // &.block-camera {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background-color: #ff0000;
+        //         mask: url(../images/icon_tree_camera.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             color: #ff0000;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // &.camera-ptz {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background: url(../images/icon_tree_camera_ptz.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // &.non-camera-ptz {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 17px;
+        //         transform: translateY(2px);
+        //         background-color: #9B9B9B;
+        //         mask: url(../images/icon_tree_camera_ptz_non.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             opacity: 0.7;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // &.block-camera-ptz {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 18px;
+        //         height: 15px;
+        //         transform: translateY(2px);
+        //         background-color: #ff0000;
+        //         mask: url(../images/icon_tree_camera_ptz.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             color: #ff0000;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: default;
+        //     }
+        // }
+
+        // // Tree
+        // &.site {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_site.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.scenario {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_scenario.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.scenario-s {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_scenario_doc.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.user {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_user.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.user-s {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_user_s.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.license {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_license.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.license-issued {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_license_1.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.license-assign {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_license_2.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.object {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_obj.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.object-camera {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_obj_1.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.object-iot {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_obj_2.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-rec {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_1.svg) no-repeat 50%;
+        //         margin-left: 2px;
+
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.block-server-rec {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background-color: #ff0000;
+        //         mask: url(../images/icon_tree_server_1.svg) no-repeat 50%;
+        //         margin-left: 2px;
+
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             color: #ff0000;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-va {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_2.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.block-server-va {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background-color: #ff0000;
+        //         mask: url(../images/icon_tree_server_2.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     +.input-wrapper {
+        //         .node-text {
+        //             color: #ff0000;
+        //         }
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-iot {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_3.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.speaker {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_speaker.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.light {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_light.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-rec-g {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_rec.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-va-g {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_va.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        // &.server-iot-g {
+        //     &::before {
+        //         content: '';
+        //         display: inline-block;
+        //         width: 20px;
+        //         height: 20px;
+        //         transform: translateY(1px);
+        //         background: url(../images/icon_tree_server_iot.svg) no-repeat 50%;
+        //         margin-left: 2px;
+        //     }
+
+        //     .node-title {
+        //         cursor: pointer;
+        //     }
+        // }
+
+        &[data-disabled=true] {
+            opacity: 0.4;
+
+            +.input-wrapper {
+                color: #a8a8ac;
+            }
+        }
+    }
+
+    .node-wrapper {
+        position: relative;
+        cursor: pointer;
+
+        &:hover {
+            background-color: rgb(230, 243, 236);
+        }
+    }
+
+    .node-wrapper[data-selected="1"] {
+        background-color: rgb(194, 231, 211);
+    }
+}

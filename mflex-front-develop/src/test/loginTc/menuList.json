@@ -1,0 +1,79 @@
+[
+  {
+    "menuId": "MFMN0000",
+    "menuNm": "메뉴 홈",
+    "excnMenuYn": "N",
+    "scrnId": "",
+    "upMenuId": null,
+    "menuLevel": 1,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0300",
+    "menuNm": "사전조회",
+    "excnMenuYn": "Y",
+    "scrnId": null,
+    "upMenuId": "MFMN0000",
+    "menuLevel": 2,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0300}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0400",
+    "menuNm": "사전등록",
+    "excnMenuYn": "N",
+    "scrnId": null,
+    "upMenuId": "MFMN0000",
+    "menuLevel": 2,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0400}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0401",
+    "menuNm": "용어",
+    "excnMenuYn": "Y",
+    "scrnId": "MFDMSCN001",
+    "upMenuId": "MFMN0400",
+    "menuLevel": 3,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0400,MFMN0401}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0402",
+    "menuNm": "단어",
+    "excnMenuYn": "Y",
+    "scrnId": "MFDMSCN002",
+    "upMenuId": "MFMN0400",
+    "menuLevel": 3,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0400,MFMN0402}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0403",
+    "menuNm": "도메인",
+    "excnMenuYn": "Y",
+    "scrnId": "MFDMSCN003",
+    "upMenuId": "MFMN0400",
+    "menuLevel": 3,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0400,MFMN0403}",
+    "scrnNm": null
+  },
+  {
+    "menuId": "MFMN0404",
+    "menuNm": "코드",
+    "excnMenuYn": "Y",
+    "scrnId": "MFDMSCN004",
+    "upMenuId": "MFMN0400",
+    "menuLevel": 3,
+    "scrnLkngUrl": null,
+    "menuPath": "{MFMN0000,MFMN0400,MFMN0404}",
+    "scrnNm": null
+  }
+]

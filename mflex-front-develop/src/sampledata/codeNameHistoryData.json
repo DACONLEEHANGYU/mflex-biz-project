@@ -1,0 +1,48 @@
+[
+  {
+    "historyDivisionName": "테스트",
+    "unityCode": {
+      "dictionary": {
+        "type": {
+          "name": "무슨표준",
+          "label": "테스트라벨",
+          "fontColor": "#C57C73",
+          "backgroundColor": "#0288D1"
+        }
+      },
+      "name": "통합코드명",
+      "koreanName": "통합코드한글명",
+      "typeName": "코드유형명",
+      "explain": "코드설명"
+    },
+    "dataTypeInfo": "데이터타입",
+    "managementDepartmentName": "관리부서",
+    "revisionCycle": "5차",
+    "revisionDate": "2024-05-24",
+    "updater": "이한규",
+    "updateDateTime": "2024-05-24 00:00:00"
+  },
+  {
+    "historyDivisionName": "테스트",
+    "unityCode": {
+      "dictionary": {
+        "type": {
+          "name": "무슨표준",
+          "label": "테스트라벨",
+          "fontColor": "#C57C73",
+          "backgroundColor": "#0288D1"
+        }
+      },
+      "name": "통합코드명",
+      "koreanName": "통합코드한글명",
+      "typeName": "코드유형명",
+      "explain": "코드설명"
+    },
+    "dataTypeInfo": "데이터타입",
+    "managementDepartmentName": "관리부서",
+    "revisionCycle": "5차",
+    "revisionDate": "2024-05-24",
+    "updater": "이한규",
+    "updateDateTime": "2024-05-24 00:00:00"
+  }
+]

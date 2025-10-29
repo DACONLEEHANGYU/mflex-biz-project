@@ -1,0 +1,16 @@
+[
+  {
+    "metaMngInstId": 2,
+    "userId": "admin",
+    "infoSysId": 1,
+    "infoSysNm": "통합정보시스템",
+    "bscStngYn": "Y"
+  },
+  {
+    "metaMngInstId": 2,
+    "userId": "admin",
+    "infoSysId": 2,
+    "infoSysNm": "데이콘홈페이지",
+    "bscStngYn": "N"
+  }
+]

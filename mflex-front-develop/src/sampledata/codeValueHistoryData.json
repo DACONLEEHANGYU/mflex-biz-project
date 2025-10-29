@@ -1,0 +1,72 @@
+[
+  {
+    "historyDivisonName": "테스트",
+    "unityCode": {
+      "dictionaryId": 3,
+      "value": "통합코드값",
+      "valueName": "통합코드명",
+      "valueExplain": "통합코드설명"
+    },
+    "parentUnityCode": {
+      "dictionary": {
+        "type": {
+          "name": "기관표준",
+          "fontColor": "#0288D1",
+          "label": "라벨",
+          "backgroundColor": "#00AC47"
+        }
+      },
+      "info": "상위사전인포"
+    },
+    "referenceUnityCode": {
+      "dictionary": {
+        "type": {
+          "type": "기관표준",
+          "fontColor": "#0288D1",
+          "label": "라벨",
+          "backgroundColor": "#00AC47"
+        }
+      },
+      "info": "참조사전인포"
+    },
+    "revisionCycle": "6차",
+    "revisionDate": "2024-04-24",
+    "updater": "이한규",
+    "updateDateTime": "2024-242424"
+  },
+  {
+    "historyDivisonName": "테스트",
+    "unityCode": {
+      "dictionaryId": 3,
+      "value": "통합코드값",
+      "valueName": "통합코드명",
+      "valueExplain": "통합코드설명"
+    },
+    "parentUnityCode": {
+      "dictionary": {
+        "type": {
+          "name": "기관표준",
+          "fontColor": "#0288D1",
+          "label": "라벨",
+          "backgroundColor": "#00AC47"
+        }
+      },
+      "info": "상위사전인포"
+    },
+    "referenceUnityCode": {
+      "dictionary": {
+        "type": {
+          "type": "기관표준",
+          "fontColor": "#0288D1",
+          "label": "라벨",
+          "backgroundColor": "#00AC47"
+        }
+      },
+      "info": "참조사전인포"
+    },
+    "revisionCycle": "6차",
+    "revisionDate": "2024-04-24",
+    "updater": "이한규",
+    "updateDateTime": "2024-242424"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "metaMngInstId": 1,
+    "metaMngInstNm": "정부",
+    "userId": "admin",
+    "inqIndctOrd": 0,
+    "bscStngYn": "Y"
+  },
+
+  {
+    "metaMngInstId": 2,
+    "metaMngInstNm": "데이콘인피니티",
+    "userId": "admin",
+    "inqIndctOrd": 0,
+    "bscStngYn": "N"
+  }
+]

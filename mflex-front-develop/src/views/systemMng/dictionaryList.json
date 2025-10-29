@@ -1,0 +1,67 @@
+[
+  {
+    "dictionaryId": "2",
+    "dictionaryChild": ["3", "4", "5"],
+    "dictionaryParent": "1",
+    "dictionaryName": "중진공표준사전",
+    "dictionaryTypeCode": "20",
+    "dictionaryFontColorName": "#ffffff",
+    "dictionaryBackGroundColorName": "#FF6347",
+    "dictionaryExplain": "중진공표준",
+    "userId": "park",
+    "username": "박현욱",
+    "regdate": "2024-02-25 13:54:54.218"
+  },
+  {
+    "dictionaryId": "1",
+    "dictionaryChild": ["2"],
+    "dictionaryParent": null,
+    "dictionaryName": "범정부표준사전",
+    "dictionaryTypeCode": "10",
+    "dictionaryFontColorName": "#ffffff",
+    "dictionaryBackGroundColorName": "#24459E",
+    "dictionaryExplain": "범정부표준",
+    "userId": "hklee",
+    "username": "이한규",
+    "regdate": "2024-02-50 13:54:54.218"
+  },
+  {
+    "dictionaryId": "4",
+    "dictionaryChild": [],
+    "dictionaryParent": "2",
+    "dictionaryName": "통합정보표준사전",
+    "dictionaryTypeCode": "90",
+    "dictionaryFontColorName": "#000000",
+    "dictionaryBackGroundColorName": "#18f261",
+    "dictionaryExplain": "통합정보표준",
+    "userId": "donguk",
+    "username": "김동억",
+    "regdate": "2024-02-22 13:54:54.218"
+  },
+  {
+    "dictionaryId": "5",
+    "dictionaryChild": [],
+    "dictionaryParent": "2",
+    "dictionaryName": "데이콘테스트사전",
+    "dictionaryTypeCode": "99",
+    "dictionaryFontColorName": "#ffffff",
+    "dictionaryBackGroundColorName": "#24459E",
+    "dictionaryExplain": "범정부표준",
+    "userId": "admin",
+    "username": "관리자",
+    "regdate": "2024-02-21 13:54:54.218"
+  },
+  {
+    "dictionaryId": "3",
+    "dictionaryChild": [],
+    "dictionaryParent": "2",
+    "dictionaryName": "내일채움공제표준사전",
+    "dictionaryTypeCode": "90",
+    "dictionaryFontColorName": "#ffffff",
+    "dictionaryBackGroundColorName": "#808080",
+    "dictionaryExplain": "범정부표준",
+    "userId": "admin",
+    "username": "관리자",
+    "regdate": "2024-02-21 13:54:54.218"
+  }
+]
