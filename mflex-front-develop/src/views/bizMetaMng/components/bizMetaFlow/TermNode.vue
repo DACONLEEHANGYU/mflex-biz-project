@@ -361,9 +361,9 @@
 
 <style lang="scss" scoped>
   .term-node {
-    min-width: 280px;
+    min-width: 200px;
     max-width: 400px;
-    min-height: 120px;
+    min-height: 95px;
     background: white;
     border: 2px solid #e2e8f0;
     border-radius: 12px;
@@ -463,8 +463,8 @@
       border: 2px solid #cbd5e1;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       border-radius: 10px;
-      width: 360px !important;
-      min-width: 360px !important;
+      // width: 360px !important;
+      min-width: 200x !important;
       max-width: 360px !important;
       height: 120px !important;
       min-height: 120px !important;
@@ -508,8 +508,8 @@
     // 🔥 복합구성용어의 자식 노드
     &[data-parent].composite-child {
       // border-left: 4px solid #a78bfa;
-      width: 360px !important;
-      min-width: 360px !important;
+      // width: 360px !important;
+      min-width: 200px !important;
       max-width: 360px !important;
       right: 18px;
       // margin-top: 50px;

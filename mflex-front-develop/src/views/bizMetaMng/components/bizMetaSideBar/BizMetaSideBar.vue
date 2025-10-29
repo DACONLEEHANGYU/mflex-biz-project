@@ -368,20 +368,28 @@
           <!-- VueFlow 영역 -->
           <div class="relation-modal-body-flow">
             <VueFlow
+              ref="vueFlowRef"
               v-if="relationModal.visible && relationGraphNodes.length > 0"
               :nodes="relationGraphNodes"
               :edges="relationGraphEdges"
               :fit-view-on-init="true"
+              :default-viewport="{ zoom: 1, x: 0, y: 0 }"
               :nodes-draggable="true"
               :nodes-connectable="false"
               :elements-selectable="false"
               :min-zoom="0.3"
-              :max-zoom="1.5"
-              :default-viewport="{ zoom: 0.8, x: 0, y: 0 }"
+              :max-zoom="2.0"
+              @pane-ready="onPaneReady"
             >
               <!-- 노드 타입 정의 -->
               <template #node-termNode="{ data, id }">
-                <TermNode :data="data" :id="id" @delete="() => {}" @connect-start="() => {}" @connect-end="() => {}" />
+                <TermNode
+                  :data="data"
+                  :id="id"
+                  @delete="() => {}"
+                  @connect-start="() => {}"
+                  @connect-end="() => {}"
+                />
               </template>
 
               <!-- 커스텀 엣지 타입 정의 -->
@@ -408,7 +416,16 @@
 
 <script setup>
   // filepath: c:\Users\dacon008\workspace\mflex-project\mflex-front\src\views\bizMetaMng\components\bizMetaSideBar\BizMetaSideBar.vue
-  import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+  // 기존 import에 nextTick 추가
+  import {
+    ref,
+    computed,
+    watch,
+    onMounted,
+    onUnmounted,
+    provide,
+    nextTick,
+  } from 'vue';
 
   import {
     getBizTerms, // 비즈니스 용어 조회
@@ -419,10 +436,14 @@
   import { storeToRefs } from 'pinia';
 
   // 🔥 VueFlow 관련 import
-  import { VueFlow } from '@vue-flow/core';
+  // useVueFlow import 추가
+  import { VueFlow, useVueFlow } from '@vue-flow/core';
   import { Position } from '@vue-flow/core';
   import TermNode from '@/views/bizMetaMng/components/bizMetaFlow/TermNode.vue';
   import RelationshipEdge from '@/views/bizMetaMng/components/bizMetaFlow/RelationshipEdge.vue';
+
+  // VueFlow 인스턴스 ref 추가
+  const vueFlowRef = ref(null);
 
   const bizMetaStore = useBizMetaStore();
 
@@ -1023,13 +1044,28 @@
     }
   };
 
-  // 🔥 관계 조회 모달 함수
-  const showTermRelations = (term) => {
+  // 관계 조회 모달 표시 함수 수정
+  const showTermRelations = async (term) => {
     console.log('관계 조회:', term);
     relationModal.value = {
       visible: true,
       term: { ...term },
     };
+
+    // DOM 업데이트 후 fitView 실행
+    await nextTick();
+    await nextTick(); // 두 번 호출하여 VueFlow가 완전히 렌더링되도록 함
+
+    if (vueFlowRef.value) {
+      // fitView 옵션으로 중앙 정렬 및 패딩 설정
+      vueFlowRef.value.fitView({
+        padding: 0.2, // 화면 가장자리에 20% 여백
+        includeHiddenNodes: false,
+        minZoom: 0.5,
+        maxZoom: 1.5,
+        duration: 300, // 애니메이션 지속 시간 (ms)
+      });
+    }
   };
 
   const closeRelationModal = () => {
@@ -1067,19 +1103,23 @@
     return classMap[termType] || 'general';
   };
 
-  // 🔥 관계 그래프 노드 생성
+  // 🔥 용어 ID로 용어 정보 찾기
+  const findTermById = (termId) => {
+    return terms.value.find((t) => t.termId === termId);
+  };
+
   const relationGraphNodes = computed(() => {
     if (!relationModal.value.term) return [];
 
     const term = relationModal.value.term;
     const nodes = [];
-    const nodeMap = new Map(); // termId -> node 매핑
+    const nodeMap = new Map();
 
     // 중앙 노드 (선택된 용어)
     const centerNode = {
       id: `term-${term.termId}`,
       type: 'termNode',
-      position: { x: 400, y: 300 },
+      position: { x: 0, y: 0 }, // 중앙에 위치
       data: {
         termId: term.termId,
         termName: term.termName,
@@ -1091,17 +1131,16 @@
     nodes.push(centerNode);
     nodeMap.set(term.termId, centerNode);
 
-    let childIndex = 0;
-    let parentIndex = 0;
-    let passiveIndex = 0;
+    const horizontalSpacing = 400; // 가로 간격
+    const verticalSpacing = 300; // 세로 간격
 
     // 복합구성용어 자식들 추가 (아래쪽)
     if (term.compositeChildren && term.compositeChildren.length > 0) {
       term.compositeChildren.forEach((child, index) => {
-        const angle = (index - (term.compositeChildren.length - 1) / 2) * 0.3;
-        const radius = 250;
-        const x = 400 + Math.sin(angle) * radius;
-        const y = 300 + 250 + Math.abs(Math.cos(angle)) * 50;
+        const x =
+          index * horizontalSpacing -
+          ((term.compositeChildren.length - 1) * horizontalSpacing) / 2;
+        const y = verticalSpacing;
 
         const childNode = {
           id: `term-${child.termId}`,
@@ -1117,24 +1156,24 @@
         };
         nodes.push(childNode);
         nodeMap.set(child.termId, childNode);
-        childIndex++;
       });
     }
 
     // asParent 관계 노드들 추가 (오른쪽)
     if (term.relations?.asParent && term.relations.asParent.length > 0) {
-      // passiveTermId로 노드 생성 (중복 제거)
       const uniquePassiveTermIds = [
         ...new Set(term.relations.asParent.map((rel) => rel.passiveTermId)),
       ];
 
       uniquePassiveTermIds.forEach((passiveTermId, index) => {
-        if (nodeMap.has(passiveTermId)) return; // 이미 존재하면 스킵
+        if (nodeMap.has(passiveTermId)) return;
 
-        const angle = (index - (uniquePassiveTermIds.length - 1) / 2) * 0.5;
-        const radius = 300;
-        const x = 400 + 350;
-        const y = 300 + Math.sin(angle) * radius;
+        const x = horizontalSpacing;
+        const y =
+          index * verticalSpacing -
+          ((uniquePassiveTermIds.length - 1) * verticalSpacing) / 2;
+
+        const foundTerm = findTermById(passiveTermId);
 
         const relNode = {
           id: `term-${passiveTermId}`,
@@ -1142,32 +1181,32 @@
           position: { x, y },
           data: {
             termId: passiveTermId,
-            termName: `용어 ${passiveTermId}`,
-            termExplain: '',
-            termType: 'GENERAL',
-            owner: '',
+            termName: foundTerm ? foundTerm.termName : `용어 ${passiveTermId}`,
+            termExplain: foundTerm ? foundTerm.termExplain : '',
+            termType: foundTerm ? foundTerm.termType : 'GENERAL',
+            owner: foundTerm ? foundTerm.owner : '',
           },
         };
         nodes.push(relNode);
         nodeMap.set(passiveTermId, relNode);
-        parentIndex++;
       });
     }
 
     // asPassive 관계 노드들 추가 (왼쪽)
     if (term.relations?.asPassive && term.relations.asPassive.length > 0) {
-      // parentTermId로 노드 생성 (중복 제거)
       const uniqueParentTermIds = [
         ...new Set(term.relations.asPassive.map((rel) => rel.parentTermId)),
       ];
 
       uniqueParentTermIds.forEach((parentTermId, index) => {
-        if (nodeMap.has(parentTermId)) return; // 이미 존재하면 스킵
+        if (nodeMap.has(parentTermId)) return;
 
-        const angle = (index - (uniqueParentTermIds.length - 1) / 2) * 0.5;
-        const radius = 300;
-        const x = 400 - 350;
-        const y = 300 + Math.sin(angle) * radius;
+        const x = -horizontalSpacing;
+        const y =
+          index * verticalSpacing -
+          ((uniqueParentTermIds.length - 1) * verticalSpacing) / 2;
+
+        const foundTerm = findTermById(parentTermId);
 
         const relNode = {
           id: `term-${parentTermId}`,
@@ -1175,15 +1214,14 @@
           position: { x, y },
           data: {
             termId: parentTermId,
-            termName: `용어 ${parentTermId}`,
-            termExplain: '',
-            termType: 'GENERAL',
-            owner: '',
+            termName: foundTerm ? foundTerm.termName : `용어 ${parentTermId}`,
+            termExplain: foundTerm ? foundTerm.termExplain : '',
+            termType: foundTerm ? foundTerm.termType : 'GENERAL',
+            owner: foundTerm ? foundTerm.owner : '',
           },
         };
         nodes.push(relNode);
         nodeMap.set(parentTermId, relNode);
-        passiveIndex++;
       });
     }
 
@@ -1255,6 +1293,25 @@
     }
 
     return edges;
+  });
+
+  // VueFlow Pane이 준비되었을 때 호출되는 메서드
+  const onPaneReady = () => {
+    if (vueFlowRef.value) {
+      vueFlowRef.value.fitView({
+        padding: 0.2,
+        includeHiddenNodes: false,
+        minZoom: 0.5,
+        maxZoom: 1.5,
+        duration: 300,
+      });
+    }
+  };
+
+  // 🔥 RelationshipEdge를 위한 provide 설정
+  provide('getAllEdges', () => relationGraphEdges.value);
+  provide('getNodeById', (id) => {
+    return relationGraphNodes.value.find((node) => node.id === id);
   });
 
   watch(isUpdate, (newVal) => {
