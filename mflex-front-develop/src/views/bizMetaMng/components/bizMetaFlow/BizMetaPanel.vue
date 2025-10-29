@@ -1594,8 +1594,8 @@
 
     // 🔥 API 전달 데이터 구조
     const orderChangeData = {
-      compositeId: parentNode.data.termId, // 복합구성용어 ID
-      compositeTermName: parentNode.data.termName, // 복합구성용어명
+      compositeId: parentNode.data.termId,
+      compositeTermName: parentNode.data.termName,
       movedChild: {
         childId: null,
         termId: null,
@@ -1603,8 +1603,8 @@
         oldOrder: oldOrder,
         newOrder: newOrder,
       },
-      affectedChildren: [], // 영향받는 다른 자식들
-      allChildrenOrder: [], // 전체 자식 순서
+      affectedChildren: [],
+      allChildrenOrder: [],
     };
 
     // 🔥 이동한 자식 정보
@@ -1620,13 +1620,20 @@
 
     // 🔥 영향받는 자식들 (순서가 변경된 노드들)
     children.forEach((child) => {
+      console.log('검토 중인 자식 노드:', {
+        termName: child.data.termName,
+        termId: child.data.termId,
+        compositeId: child.data.compositeId,
+        termRelId: child.data.termRelId,
+        order: child.data.order,
+      });
+
       if (child.id === movedChildId) return;
 
       let isAffected = false;
       let orderChange = null;
 
       if (oldOrder < newOrder) {
-        // 아래로 이동: 중간 노드들이 위로 당겨짐
         if (child.data.order > oldOrder && child.data.order <= newOrder) {
           isAffected = true;
           orderChange = {
@@ -1635,7 +1642,6 @@
           };
         }
       } else if (oldOrder > newOrder) {
-        // 위로 이동: 중간 노드들이 아래로 밀림
         if (child.data.order >= newOrder && child.data.order < oldOrder) {
           isAffected = true;
           orderChange = {
@@ -1656,25 +1662,25 @@
         });
       }
 
-      // 🔥 전체 자식 순서 (최종 순서)
+      // 🔥 전체 자식 순서 (compositeId와 termRelId 포함)
       orderChangeData.allChildrenOrder.push({
         childId: child.id,
         termId: child.data.termId,
         termName: child.data.termName,
-        compositeId: child.data.compositeId,
-        termRelId: child.data.termRelId,
+        compositeId: child.data.compositeId, // 🔥 추가
+        termRelId: child.data.termRelId, // 🔥 추가
         sortOrder: child.data.order,
       });
     });
 
-    // 🔥 이동한 노드도 전체 순서에 추가
+    // 🔥 이동한 노드도 전체 순서에 추가 (compositeId와 termRelId 포함)
     if (movedChild) {
       orderChangeData.allChildrenOrder.push({
         childId: movedChild.id,
         termId: movedChild.data.termId,
         termName: movedChild.data.termName,
-        compositeId: movedChild.data.compositeId,
-        termRelId: movedChild.data.termRelId,
+        compositeId: movedChild.data.compositeId, // 🔥 추가
+        termRelId: movedChild.data.termRelId, // 🔥 추가
         sortOrder: movedChild.data.order,
       });
     }
@@ -1689,7 +1695,7 @@
       console.log(
         `  ${idx + 1}. ${child.termName}: ${child.orderChange.from} → ${
           child.orderChange.to
-        }`
+        } (compositeId: ${child.compositeId}, termRelId: ${child.termRelId})`
       );
     });
 
@@ -1698,7 +1704,9 @@
     );
     orderChangeData.allChildrenOrder.forEach((child, idx) => {
       console.log(
-        `  ${idx + 1}. ${child.termName} (sortOrder: ${child.sortOrder})`
+        `  ${idx + 1}. ${child.termName} (sortOrder: ${
+          child.sortOrder
+        }, compositeId: ${child.compositeId}, termRelId: ${child.termRelId})`
       );
     });
 
@@ -2613,9 +2621,30 @@
       compositeTermChildName: childNode.data.termName,
     };
 
+    let response;
+
     try {
-      await addBizTermComposite(compositeData);
+      response = await addBizTermComposite(compositeData);
       console.log('✅ 복합구성용어 관계 생성 API 완료');
+      console.log('📊 [복합구성용어] 생성된 관계:', response);
+
+      // 🔥 API 응답에서 compositeId와 termRelId 저장
+      if (response && response.composites && response.composites.length > 0) {
+        const latestComposite =
+          response.composites[response.composites.length - 1];
+
+        // 🔥 자식 노드 데이터에 compositeId와 termRelId 저장
+        childNode.data = {
+          ...childNode.data,
+          compositeId: latestComposite.compositeId,
+          termRelId: latestComposite.termRelId,
+        };
+
+        console.log('✅ 자식 노드에 compositeId와 termRelId 저장:', {
+          compositeId: latestComposite.compositeId,
+          termRelId: latestComposite.termRelId,
+        });
+      }
     } catch (error) {
       console.error('❌ 복합구성용어 관계 생성 실패:', error);
     }
@@ -3490,7 +3519,7 @@
 
     try {
       // 🔥 복합구성용어 자식 노드인 경우 API 호출
-      if (isCompositeChild && node.data.termRelId) {
+      if (isCompositeChild) {
         console.log('📡 복합구성용어 자식 삭제 API 호출:', {
           termRelId: node.data.termRelId,
           compositeId: node.data.compositeId,
@@ -3678,7 +3707,6 @@
             `\n🔧 복합구성용어 자식 노드 생성 시작 (${compositeChildren.length}개)`
           );
 
-          // sortOrder 기준으로 정렬
           const sortedChildren = [...compositeChildren].sort(
             (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
           );
@@ -3701,7 +3729,6 @@
               } 생성 중...`
             );
 
-            // 🔥 자식 노드 위치 설정
             const childNode = {
               id: `term-${nodeIdCounter++}`,
               type: 'termNode',
@@ -3736,11 +3763,11 @@
                 createdAt: childTermData.createdAt || new Date().toISOString(),
                 isFromSidebar: false,
                 isChildNode: true,
-                isCompositeChild: true, // 🔥🔥🔥 핵심 플래그
+                isCompositeChild: true,
                 order: compositeChild.sortOrder || index + 1,
                 parentNode: parentNode.id,
-                compositeId: compositeChild.compositeId,
-                termRelId: compositeChild.termRelId,
+                compositeId: compositeChild.compositeId, // 🔥 API 응답에서 가져온 값
+                termRelId: compositeChild.termRelId, // 🔥 API 응답에서 가져온 값
               },
             };
 
@@ -3748,7 +3775,7 @@
             nodes.value.push(childNode);
 
             console.log(
-              `    ✅ 자식 노드 생성: ${childTermData.termName} (순번: ${childNode.data.order}, isCompositeChild: ${childNode.data.isCompositeChild})`
+              `    ✅ 자식 노드 생성: ${childTermData.termName} (순번: ${childNode.data.order}, compositeId: ${childNode.data.compositeId}, termRelId: ${childNode.data.termRelId})`
             );
           }
 
