@@ -1974,9 +1974,39 @@
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 🔥 순차적 소속관계 재구성
-    await reconstructSequentialCompositionEdges(parentId);
+    // 🔥🔥🔥 순서 변경 후 최신 compositeRelations 가져오기
+    console.log('\n📡 최신 compositeRelations 조회 중...');
+
+    let latestCompositeRelations = null;
+
+    try {
+      latestCompositeRelations = await getNewCompositeRelations(
+        parentNode.data.termId
+      );
+
+      console.log(
+        '✅ 최신 compositeRelations 조회 완료:',
+        latestCompositeRelations?.length || 0,
+        '개'
+      );
+
+      // 🔥 부모 노드의 compositeRelations 업데이트
+      if (latestCompositeRelations && latestCompositeRelations.length > 0) {
+        parentNode.data.compositeRelations = latestCompositeRelations;
+        console.log('✅ 부모 노드 compositeRelations 업데이트 완료');
+      }
+    } catch (error) {
+      console.error('❌ compositeRelations 조회 실패:', error);
+      latestCompositeRelations = parentNode.data.compositeRelations || [];
+    }
+
+    // 🔥 순차적 소속관계 재구성 (최신 compositeRelations 전달)
+    await reconstructSequentialCompositionEdges(
+      parentId,
+      latestCompositeRelations
+    );
   };
+
   // 🔥 복합구성용어 자식 노드의 순차적 소속관계 재구성
   const reconstructSequentialCompositionEdges = async (
     parentId,
@@ -2018,7 +2048,7 @@
       children.map((c) => `${c.data.order}. ${c.data.termName}`).join(' → ')
     );
 
-    // 🔥 부모 노드의 compositeRelations 업데이트 (완전한 relationDetail 포함)
+    // 🔥🔥🔥 부모 노드의 compositeRelations 업데이트 (완전한 relationDetail 포함)
     if (newCompositeRelations && newCompositeRelations.length > 0) {
       console.log('\n🔧 compositeRelations 업데이트 시작...');
 
@@ -2061,56 +2091,44 @@
               `      타겟: ${targetChild.data.termName} (termId: ${targetChild.data.termId})`
             );
 
-            // 🔥 기존 compositeRelations에서 일치하는 항목 찾기
-            const matchedRelation = parentNode.data.compositeRelations?.find(
-              (cr) => String(cr.compositeRelId) === String(rel.compositeRelId)
+            // 🔥 sourceChild의 relations에서 해당 관계 찾기
+            let relDetail = null;
+
+            const foundRelation = sourceChild.data.relations?.asParent?.find(
+              (r) =>
+                r.passiveTermId === targetChild.data.termId &&
+                String(r.termRelId) === String(rel.compositeRelId)
             );
 
-            // 🔥 sourceChild의 relations에서 해당 관계 찾기
-            let relDetail = matchedRelation?.relationDetail;
-
-            if (
-              !relDetail ||
-              !relDetail.parentTermId ||
-              !relDetail.passiveTermId
-            ) {
-              console.log('    🔍 relations에서 관계 정보 검색...');
-
-              const foundRelation = sourceChild.data.relations?.asParent?.find(
-                (r) =>
-                  r.passiveTermId === targetChild.data.termId &&
-                  String(r.termRelId) === String(rel.compositeRelId)
+            if (foundRelation) {
+              console.log(
+                '    ✅ relations에서 관계 정보 찾음:',
+                foundRelation
               );
-
-              if (foundRelation) {
-                console.log(
-                  '    ✅ relations에서 관계 정보 찾음:',
-                  foundRelation
-                );
-                relDetail = {
-                  termRelId: foundRelation.termRelId,
-                  parentTermId: foundRelation.parentTermId,
-                  passiveTermId: foundRelation.passiveTermId,
-                  relType: foundRelation.relType,
-                  rel_expln: foundRelation.rel_expln,
-                };
-              }
+              relDetail = {
+                termRelId: foundRelation.termRelId,
+                parentTermId: foundRelation.parentTermId,
+                passiveTermId: foundRelation.passiveTermId,
+                relType: foundRelation.relType,
+                rel_expln: foundRelation.rel_expln,
+              };
+            } else {
+              // 🔥 relations에 없으면 기본값 생성
+              console.log('    ⚠️ relations에서 찾을 수 없음 - 기본값 생성');
+              relDetail = {
+                termRelId: rel.compositeRelId,
+                parentTermId: sourceChild.data.termId,
+                passiveTermId: targetChild.data.termId,
+                relType: 'COMPOSITION',
+                rel_expln: `${sourceChild.data.termName}과 ${targetChild.data.termName}는 순차적 소속관계입니다.`,
+              };
             }
 
-            // 🔥 최종 relationDetail 생성
-            const finalRelationDetail = relDetail || {
-              termRelId: rel.compositeRelId,
-              parentTermId: sourceChild.data.termId,
-              passiveTermId: targetChild.data.termId,
-              relType: 'COMPOSITION',
-              rel_expln: `${sourceChild.data.termName}과 ${targetChild.data.termName}는 순차적 소속관계입니다.`,
-            };
-
-            console.log('    ✅ 최종 relationDetail:', finalRelationDetail);
+            console.log('    ✅ 최종 relationDetail:', relDetail);
 
             return {
               ...rel,
-              relationDetail: finalRelationDetail,
+              relationDetail: relDetail,
             };
           } else {
             console.warn(
@@ -2118,13 +2136,9 @@
             );
 
             // 기본 relationDetail 생성
-            const matchedRelation = parentNode.data.compositeRelations?.find(
-              (cr) => String(cr.compositeRelId) === String(rel.compositeRelId)
-            );
-
             return {
               ...rel,
-              relationDetail: matchedRelation?.relationDetail || {
+              relationDetail: {
                 termRelId: rel.compositeRelId,
                 parentTermId: null,
                 passiveTermId: null,
@@ -2151,27 +2165,13 @@
 
     // 🔥 부모 노드의 compositeRelations 가져오기
     const getCompositeRelations = (childNode) => {
-      // 🔥 1순위: 함수 매개변수로 전달된 newCompositeRelations (relationDetail 포함)
-      if (newCompositeRelations && newCompositeRelations.length > 0) {
-        console.log(
-          '🔥 매개변수로 전달된 newCompositeRelations 사용:',
-          newCompositeRelations.length,
-          '개'
-        );
-        return parentNode.data.compositeRelations;
-      }
-
-      // 🔥 2순위: 부모 노드의 data.compositeRelations
+      // 🔥 1순위: 업데이트된 부모 노드의 compositeRelations
       if (!childNode.parentNode) return [];
 
       const childParentNode = nodes.value.find(
         (n) => n.id === childNode.parentNode
       );
 
-      console.log(
-        'getCompositeRelations childParentNode?.data?.compositeRelations ',
-        childParentNode?.data?.compositeRelations
-      );
       return childParentNode?.data?.compositeRelations || [];
     };
 
@@ -2256,189 +2256,131 @@
 
       console.log(`    📊 기존 관계 수: ${allRelations.length}개`);
 
-      // 🔥 새 소속관계 생성 (API 호출)
-      const sequentialRelationData = {
-        parentTermId: sourceChild.data.termId,
-        passiveTermId: targetChild.data.termId,
-        relType: 'COMPOSITION',
-        rel_expln: `${sourceChild.data.termName}과 ${targetChild.data.termName}는 순차적 소속관계입니다. (순번: ${sourceChild.data.order} → ${targetChild.data.order})`,
-        owner: userInfo.value.ogdpDeptNm || '',
+      // 🔥 compositeRelations 가져오기 (업데이트된 것 우선 사용)
+      const compositeRelations = getCompositeRelations(sourceChild);
+
+      console.log('📋 사용할 compositeRelations:', compositeRelations);
+
+      // 🔥 이 source-target 쌍의 compositeRelations 필터링
+      const pairCompositeRelations = compositeRelations.filter((compRel) => {
+        const hasParentTermId =
+          compRel.relationDetail?.parentTermId === sourceChild.data.termId;
+        const hasPassiveTermId =
+          compRel.relationDetail?.passiveTermId === targetChild.data.termId;
+
+        console.log(
+          `    🔍 필터링 중: compositeRelId=${compRel.compositeRelId}`
+        );
+        console.log(
+          `      parentTermId 일치: ${hasParentTermId} (${compRel.relationDetail?.parentTermId} === ${sourceChild.data.termId})`
+        );
+        console.log(
+          `      passiveTermId 일치: ${hasPassiveTermId} (${compRel.relationDetail?.passiveTermId} === ${targetChild.data.termId})`
+        );
+
+        return hasParentTermId && hasPassiveTermId;
+      });
+
+      console.log(
+        `    🔗 pairCompositeRelations: ${pairCompositeRelations.length}개`,
+        pairCompositeRelations
+      );
+
+      // 🔥🔥🔥 pairCompositeRelations가 없으면 순서가 바뀐 것 - 재구성 필요
+      if (pairCompositeRelations.length === 0) {
+        console.log(
+          '    ⚠️ pairCompositeRelations 없음 - compositeTermOrder로 재구성'
+        );
+
+        const matchedCompRel = compositeRelations.find(
+          (compRel) =>
+            parseInt(compRel.compositeTermOrder) === sourceChild.data.order
+        );
+
+        if (matchedCompRel && matchedCompRel.relationDetail) {
+          console.log('    ✅ compositeTermOrder로 관계 찾음:', matchedCompRel);
+          pairCompositeRelations.push(matchedCompRel);
+        }
+      }
+
+      // 🔥 Handle 지정 (복합구성용어 자식은 상하만)
+      const sourceHandle = `${sourceChild.id}-bottom-source`;
+      const targetHandle = `${targetChild.id}-top-target`;
+
+      // 🔥 기본 선택 관계: pairCompositeRelations의 첫 번째 항목과 일치하는 관계
+      let defaultRelation = null;
+
+      if (pairCompositeRelations.length > 0) {
+        const activeCompositeRel = pairCompositeRelations[0];
+        defaultRelation = allRelations.find(
+          (r) =>
+            String(r.termRelId) === String(activeCompositeRel.compositeRelId)
+        );
+        console.log(
+          '    🔥 pairCompositeRelations 기반 기본 관계 선택:',
+          defaultRelation
+        );
+      }
+
+      // 기본값 설정
+      if (!defaultRelation) {
+        defaultRelation =
+          allRelations.find((r) => r.relType === 'COMPOSITION') ||
+          allRelations[0];
+        console.log('    🔥 기본 COMPOSITION 관계 사용:', defaultRelation);
+      }
+
+      // 🔥 현재 활성화된 compositeRelation
+      const activeCompositeRel = pairCompositeRelations[0];
+
+      // 🔥 엣지 생성 (availableRelations 및 compositeRelations 포함)
+      const sequentialEdge = {
+        id: `edge-${edgeIdCounter++}`,
+        source: sourceChild.id,
+        target: targetChild.id,
+        sourceHandle: sourceHandle,
+        targetHandle: targetHandle,
+        type: 'relationshipEdge',
+        animated: false,
+        style: {
+          stroke:
+            colorMap[defaultRelation?.relType || 'COMPOSITION'] || '#10b981',
+          strokeWidth: 2.5,
+        },
+        data: {
+          relationshipId: defaultRelation?.termRelId || Date.now(),
+          relationshipType: defaultRelation?.relType || 'COMPOSITION',
+          description: defaultRelation?.rel_expln || '',
+          isBidirectional: false,
+          isAutoGenerated: true,
+          isSequential: true,
+          isCompositeChild: true,
+          availableRelations: allRelations, // 🔥 모든 관계 저장
+          compositeRelations: pairCompositeRelations, // 🔥🔥🔥 핵심: 업데이트된 compositeRelations 포함
+          termCompositeRelId: activeCompositeRel?.termCompositerRelId,
+          compositeId: activeCompositeRel?.compositeId,
+          compositeTermOrder: activeCompositeRel?.compositeTermOrder,
+          createdAt: new Date().toISOString(),
+          sourceNodeName: sourceChild.data.termName,
+          targetNodeName: targetChild.data.termName,
+        },
       };
 
-      try {
-        const response = await addBizTermRelation(sequentialRelationData);
-
-        if (response.status !== 200) {
-          if (response.data.code === 1400) {
-            console.error('   ❌ 이미 존재하는 소속관계입니다.');
-          } else {
-            console.error('   ❌ 알 수 없는 오류가 발생했습니다.');
-          }
-        }
-
-        console.log('    ✅ API 호출 성공:', response);
-
-        const newRelation = {
-          termRelId: response?.termRelId || Date.now(),
-          parentTermId: sourceChild.data.termId,
-          passiveTermId: targetChild.data.termId,
-          relType: 'COMPOSITION',
-          rel_expln: sequentialRelationData.rel_expln,
-          regDate: new Date().toISOString(),
-        };
-
-        // 🔥 관계 목록에 새 관계 추가 (중복 체크)
-        const existingRelation = allRelations.find(
-          (r) =>
-            r.parentTermId === newRelation.parentTermId &&
-            r.passiveTermId === newRelation.passiveTermId &&
-            r.relType === newRelation.relType
-        );
-
-        if (!existingRelation) {
-          allRelations.push(newRelation);
-        }
-
-        console.log(`    📊 총 관계 수: ${allRelations.length}개`);
-
-        // 🔥 compositeRelations 가져오기 (업데이트된 것 우선 사용)
-        const compositeRelations = getCompositeRelations(sourceChild);
-
-        console.log('📋 사용할 compositeRelations:', compositeRelations);
-
-        // 🔥 이 source-target 쌍의 compositeRelations 필터링
-        const pairCompositeRelations = compositeRelations.filter((compRel) => {
-          const hasParentTermId =
-            compRel.relationDetail?.parentTermId === sourceChild.data.termId;
-          const hasPassiveTermId =
-            compRel.relationDetail?.passiveTermId === targetChild.data.termId;
-
-          console.log(
-            `    🔍 필터링 중: compositeRelId=${compRel.compositeRelId}`
-          );
-          console.log(
-            `      parentTermId 일치: ${hasParentTermId} (${compRel.relationDetail?.parentTermId} === ${sourceChild.data.termId})`
-          );
-          console.log(
-            `      passiveTermId 일치: ${hasPassiveTermId} (${compRel.relationDetail?.passiveTermId} === ${targetChild.data.termId})`
-          );
-
-          return hasParentTermId && hasPassiveTermId;
-        });
-
-        console.log(
-          `    🔗 pairCompositeRelations: ${pairCompositeRelations.length}개`,
-          pairCompositeRelations
-        );
-
-        // 🔥 Handle 지정 (복합구성용어 자식은 상하만)
-        const sourceHandle = `${sourceChild.id}-bottom-source`;
-        const targetHandle = `${targetChild.id}-top-target`;
-
-        // 🔥 기본 선택 관계: pairCompositeRelations의 첫 번째 항목과 일치하는 관계
-        let defaultRelation = null;
-
-        if (pairCompositeRelations.length > 0) {
-          const activeCompositeRel = pairCompositeRelations[0];
-          defaultRelation = allRelations.find(
-            (r) =>
-              String(r.termRelId) === String(activeCompositeRel.compositeRelId)
-          );
-          console.log(
-            '    🔥 pairCompositeRelations 기반 기본 관계 선택:',
-            defaultRelation
-          );
-        }
-
-        // 기본값 설정
-        if (!defaultRelation) {
-          defaultRelation =
-            allRelations.find((r) => r.relType === 'COMPOSITION') ||
-            allRelations[0];
-          console.log('    🔥 기본 COMPOSITION 관계 사용:', defaultRelation);
-        }
-
-        // 🔥 현재 활성화된 compositeRelation
-        const activeCompositeRel = pairCompositeRelations[0];
-
-        // 🔥 엣지 생성 (availableRelations 및 compositeRelations 포함)
-        const sequentialEdge = {
-          id: `edge-${edgeIdCounter++}`,
-          source: sourceChild.id,
-          target: targetChild.id,
-          sourceHandle: sourceHandle,
-          targetHandle: targetHandle,
-          type: 'relationshipEdge',
-          animated: false,
-          style: {
-            stroke: colorMap[defaultRelation.relType] || '#10b981',
-            strokeWidth: 2.5,
-          },
-          data: {
-            relationshipId: defaultRelation.termRelId,
-            relationshipType: defaultRelation.relType,
-            description: defaultRelation.rel_expln || '',
-            isBidirectional: false,
-            isAutoGenerated: true,
-            isSequential: true,
-            isCompositeChild: true,
-            availableRelations: allRelations, // 🔥 모든 관계 저장
-            compositeRelations: pairCompositeRelations, // 🔥 업데이트된 pair compositeRelations 포함
-            termCompositeRelId: activeCompositeRel?.termCompositerRelId,
-            compositeId: activeCompositeRel?.compositeId,
-            compositeTermOrder: activeCompositeRel?.compositeTermOrder,
-            createdAt: new Date().toISOString(),
-            sourceNodeName: sourceChild.data.termName,
-            targetNodeName: targetChild.data.termName,
-          },
-        };
-
-        edges.value.push(sequentialEdge);
-        console.log(`    ✅ 엣지 생성 완료: ${sequentialEdge.id}`);
-        console.log(
-          `    📋 사용 가능한 관계: ${allRelations
-            .map((r, idx) => `${idx + 1}. ${r.relType}`)
-            .join(', ')}`
-        );
-        console.log(
-          `    📋 compositeRelations: ${pairCompositeRelations.length}개 포함됨`
-        );
-        console.log(
-          `    🔥 기본 선택된 관계: ${defaultRelation.relType} (termRelId: ${defaultRelation.termRelId})`
-        );
-
-        // 🔥 relations 데이터 업데이트
-        if (!sourceChild.data.relations) {
-          sourceChild.data.relations = { asParent: [], asPassive: [] };
-        }
-        if (!targetChild.data.relations) {
-          targetChild.data.relations = { asParent: [], asPassive: [] };
-        }
-
-        const existingAsParent = sourceChild.data.relations.asParent.find(
-          (rel) =>
-            rel.parentTermId === newRelation.parentTermId &&
-            rel.passiveTermId === newRelation.passiveTermId &&
-            rel.relType === newRelation.relType
-        );
-
-        if (!existingAsParent) {
-          sourceChild.data.relations.asParent.push(newRelation);
-        }
-
-        const existingAsPassive = targetChild.data.relations.asPassive.find(
-          (rel) =>
-            rel.parentTermId === newRelation.parentTermId &&
-            rel.passiveTermId === newRelation.passiveTermId &&
-            rel.relType === newRelation.relType
-        );
-
-        if (!existingAsPassive) {
-          targetChild.data.relations.asPassive.push(newRelation);
-        }
-      } catch (error) {
-        console.error('    ❌ API 호출 실패:', error);
-      }
+      edges.value.push(sequentialEdge);
+      console.log(`    ✅ 엣지 생성 완료: ${sequentialEdge.id}`);
+      console.log(
+        `    📋 사용 가능한 관계: ${allRelations
+          .map((r, idx) => `${idx + 1}. ${r.relType}`)
+          .join(', ')}`
+      );
+      console.log(
+        `    📋 compositeRelations: ${pairCompositeRelations.length}개 포함됨`
+      );
+      console.log(
+        `    🔥 기본 선택된 관계: ${
+          defaultRelation?.relType || 'COMPOSITION'
+        } (termRelId: ${defaultRelation?.termRelId || 'N/A'})`
+      );
     }
 
     // 🔥 엣지 갱신
