@@ -3419,35 +3419,52 @@
       return;
     }
 
+    // 🔥 동일한 용어명이 존재하는지 확인
+    const isDuplicate = nodes.value.some(
+      (node) => node.data.termName === newTerm.termName.trim()
+    );
+
+    if (isDuplicate) {
+      alert(`'${newTerm.termName.trim()}' 용어는 이미 존재합니다.`);
+      return;
+    }
+
     console.log('새 용어 생성:', newTerm);
     console.log('userInfo : ', userInfo);
 
     const response = await addBizTerm(newTerm);
 
-    const newNode = {
-      id: `term-${nodeIdCounter++}`,
-      type: 'termNode',
-      position: newTerm.nodePosition || { x: 100, y: 100 },
-      draggable: true,
-      data: {
-        termId: response?.termId,
-        termName: newTerm.termName.trim(),
-        termExplain: newTerm.termExplain.trim(),
-        owner: newTerm.owner,
-        createDateTime: new Date().toISOString(),
-      },
-    };
+    if (response.data?.code === 1401) {
+      alert('중복된 용어가 존재합니다.');
+      // return;
+    } else {
+      console.log('용어 생성 API 응답:', response);
 
-    console.log('생성된 노드:', newNode);
+      const newNode = {
+        id: `term-${nodeIdCounter++}`,
+        type: 'termNode',
+        position: newTerm.nodePosition || { x: 100, y: 100 },
+        draggable: true,
+        data: {
+          termId: response?.termId,
+          termName: newTerm.termName.trim(),
+          termExplain: newTerm.termExplain.trim(),
+          owner: newTerm.owner,
+          createDateTime: new Date().toISOString(),
+        },
+      };
 
-    nodes.value.push(newNode);
+      console.log('생성된 노드:', newNode);
 
-    setIsUpdate(true);
+      nodes.value.push(newNode);
 
-    // 초기화
-    newTerm.termExplain = '';
+      setIsUpdate(true);
 
-    emit('term-created', newNode);
+      // 초기화
+      newTerm.termExplain = '';
+
+      emit('term-created', newNode);
+    }
     closeTermPopup();
   };
 

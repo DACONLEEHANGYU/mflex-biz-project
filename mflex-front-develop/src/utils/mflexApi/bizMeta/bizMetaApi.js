@@ -25,7 +25,7 @@ const addBizTerm = async (termData) => {
     return response.data;
   } catch (error) {
     console.error('addBizTerm API 에러:', error);
-    throw error;
+    return error;
   }
 };
 
