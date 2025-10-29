@@ -199,7 +199,7 @@
           </div>
 
           <!-- 메타 정보 -->
-          <div class="detail-section meta-section">
+          <!-- <div class="detail-section meta-section">
             <h4 class="section-title">메타 정보</h4>
             <div class="meta-grid">
               <div class="meta-item">
@@ -213,7 +213,7 @@
                 }}</span>
               </div>
             </div>
-          </div>
+          </div> -->
         </div>
 
         <!-- 🔥 관계 상세 정보 (삭제 버튼 추가) -->
@@ -294,7 +294,7 @@
           </div>
 
           <!-- 메타 정보 -->
-          <div class="detail-section meta-section">
+          <!-- <div class="detail-section meta-section">
             <h4 class="section-title">메타 정보</h4>
             <div class="meta-grid">
               <div class="meta-item">
@@ -308,7 +308,7 @@
                 }}</span>
               </div>
             </div>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
@@ -367,29 +367,53 @@
     const nodeId = props.selectedItem.id;
     const nodeData = props.selectedItem.data;
 
+    console.log('🔍 [nodeRelationships] 관계 필터링 시작:', {
+      nodeId,
+      termName: nodeData?.termName,
+      isCompositeChild: nodeData?.isCompositeChild,
+    });
+
     // 🔥 해당 노드와 연결된 모든 엣지 필터링
     let relationships = props.edges.filter(
       (edge) => edge.source === nodeId || edge.target === nodeId
     );
 
-    // 🔥 복합구성용어 자식 노드인 경우: 순차적 소속관계만 제외
-    if (nodeData?.isCompositeChild) {
-      relationships = relationships.filter((edge) => {
-        // 🔥 순차적 소속관계인지 확인
-        const isSequentialComposition =
-          edge.data?.currentRelation?.relType === 'COMPOSITION' &&
-          edge.data?.currentRelation?.rel_expln?.includes('순차적 소속관계');
+    console.log(
+      `📊 [nodeRelationships] 전체 연결된 엣지: ${relationships.length}개`
+    );
 
-        // 🔥 순차적 소속관계만 제외 (실제 비즈니스 관계는 유지)
-        if (isSequentialComposition) {
-          return false;
+    // 🔥 복합구성용어 자식 노드인 경우: 내부 자식 간 관계 제외
+    if (nodeData?.isCompositeChild) {
+      const selectedNode = props.nodes.find((n) => n.id === nodeId);
+      const parentNodeId = selectedNode?.parentNode;
+
+      console.log('🔥 [nodeRelationships] 복합구성용어 자식 - 필터링 적용');
+      console.log(`   부모 노드 ID: ${parentNodeId}`);
+
+      relationships = relationships.filter((edge) => {
+        const sourceNode = props.nodes.find((n) => n.id === edge.source);
+        const targetNode = props.nodes.find((n) => n.id === edge.target);
+
+        // 🔥 소스/타겟이 모두 같은 부모의 자식인지 확인
+        const isBothCompositeChildren =
+          sourceNode?.data.isCompositeChild &&
+          targetNode?.data.isCompositeChild &&
+          sourceNode?.parentNode === parentNodeId &&
+          targetNode?.parentNode === parentNodeId;
+
+        if (isBothCompositeChildren) {
+          console.log(`   ⏭️ 내부 자식 간 엣지 제외: ${edge.id}`);
+          return false; // 같은 복합구성용어 내부 자식 간 관계 제외
         }
 
         return true;
       });
+
+      console.log(
+        `✅ [nodeRelationships] 필터링 후: ${relationships.length}개`
+      );
     }
 
-    console.log('사이드바 - 노드 관계 (필터링 후):', relationships);
     return relationships;
   });
 

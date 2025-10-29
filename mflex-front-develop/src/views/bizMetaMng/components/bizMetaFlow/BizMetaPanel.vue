@@ -3461,6 +3461,9 @@
 
     setIsUpdate(true);
 
+    // 초기화
+    newTerm.termExplain = '';
+
     emit('term-created', newNode);
     closeTermPopup();
   };
@@ -3812,7 +3815,10 @@
       requestAnimationFrame(() => {
         flowKey.value = Date.now(); // 고유한 key 생성
         isFlowReady.value = true;
-        console.log('✅ [onMounted] VueFlow 렌더링 완료, flowKey:', flowKey.value);
+        console.log(
+          '✅ [onMounted] VueFlow 렌더링 완료, flowKey:',
+          flowKey.value
+        );
 
         // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
         setTimeout(() => {
@@ -3886,7 +3892,10 @@
       requestAnimationFrame(() => {
         flowKey.value = Date.now(); // 고유한 key 생성
         isFlowReady.value = true;
-        console.log('✅ [onActivated] VueFlow 재렌더링 완료, flowKey:', flowKey.value);
+        console.log(
+          '✅ [onActivated] VueFlow 재렌더링 완료, flowKey:',
+          flowKey.value
+        );
 
         // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
         setTimeout(() => {
