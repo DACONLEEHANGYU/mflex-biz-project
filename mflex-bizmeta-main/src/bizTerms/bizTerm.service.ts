@@ -337,12 +337,29 @@ export class BizTermService {
   async addBizTerm(bizTerm: Partial<BizTerm>): Promise<BizTerm> {
     const now = new Date();
 
+    // 🔥 동일한 용어명이 존재하는지 확인
+    const existingTerm = await this.bizTermRepository.findOne({
+      where: { termName: bizTerm.termName },
+    });
+
+    if (existingTerm) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.CONFLICT,
+          message: `'${bizTerm.termName}' 용어는 이미 존재합니다.`,
+          code: 1401, // 에러 코드 추가
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const entity = this.bizTermRepository.create({
       ...bizTerm,
       createDateTime: bizTerm.createDateTime
         ? new Date(bizTerm.createDateTime)
         : now,
     });
+
     return await this.bizTermRepository.save(entity);
   }
 
