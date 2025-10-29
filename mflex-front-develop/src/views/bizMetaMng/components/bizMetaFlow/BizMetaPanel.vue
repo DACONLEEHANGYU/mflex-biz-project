@@ -41,6 +41,7 @@
       @click="handleContainerClick"
     >
       <VueFlow
+        v-if="isFlowReady"
         :key="flowKey"
         ref="vueFlowRef"
         v-model:nodes="nodes"
@@ -68,7 +69,7 @@
         :snap-to-grid="false"
         :snap-grid="[15, 15]"
         elevate-edges-on-select
-        @init="onVueFlowInit"
+        @pane-ready="onPaneReady"
       >
         <!-- 커스텀 연결 라인 -->
         <template #connection-line="{ sourceX, sourceY, targetX, targetY }">
@@ -373,6 +374,7 @@
     reactive,
     nextTick,
     onMounted,
+    onBeforeUnmount,
     provide,
     watch,
     onActivated,
@@ -404,7 +406,7 @@
   const authStore = useAuthStore();
   const { userInfo, userStngInfo } = storeToRefs(authStore);
 
-  const { fitView } = useVueFlow();
+  const { fitView, updateNodeInternals } = useVueFlow();
 
   const emit = defineEmits([
     'term-created',
@@ -427,30 +429,30 @@
     zoom: 0.8, // 🔥 초기 zoom 레벨 (0.8 = 80% 크기)
   });
 
-  // 🔥 Vue Flow 인스턴스
-  let vueFlowInstance = null;
+  // 🔥 Pane이 준비되었을 때 호출
+  const onPaneReady = () => {
+    console.log('🎨 [onPaneReady] VueFlow Pane 준비 완료');
 
-  // 🔥 Vue Flow 초기화 핸들러
-  const onVueFlowInit = (instance) => {
-    console.log('🎨 Vue Flow 초기화');
-    vueFlowInstance = instance;
+    // 🔥 Pane이 완전히 준비되면 노드 업데이트 및 fitView 실행
+    setTimeout(async () => {
+      if (nodes.value.length > 0) {
+        console.log('🔄 [onPaneReady] 노드 dimension 업데이트 시작');
+        nodes.value.forEach((node) => {
+          updateNodeInternals(node.id);
+        });
+        console.log('✅ [onPaneReady] 노드 dimension 업데이트 완료');
 
-    // 🔥 초기 뷰포트 설정
-    instance.setViewport(
-      {
-        x: 0,
-        y: 0,
-        zoom: 0.9, // 🔥 초기 zoom 레벨
-      },
-      { duration: 0 }
-    );
-
-    console.log('✅ 초기 뷰포트 설정 완료:', {
-      x: 0,
-      y: 0,
-      zoom: 0.8,
-    });
+        // 🔥 모든 노드가 보이도록 뷰 조정
+        await nextTick();
+        fitView({ padding: 0.2, duration: 200 });
+        console.log('✅ [onPaneReady] fitView 완료');
+      }
+    }, 100);
   };
+
+  // 🔥 Flow 초기화 상태 관리
+  const isFlowReady = ref(false);
+  const flowKey = ref(0);
 
   // 상태 관리
   const nodes = ref([]);
@@ -521,9 +523,43 @@
 
   // Provider 함수들
   const getNodeRelationships = (nodeId) => {
-    return edges.value.filter(
-      (edge) => edge.source === nodeId || edge.target === nodeId
-    );
+    // 🔥 해당 노드가 복합구성용어의 자식인지 확인
+    const node = nodes.value.find((n) => n.id === nodeId);
+    if (!node || !node.data.isCompositeChild) {
+      // 🔥 일반 노드: 모든 관계 반환
+      return edges.value.filter(
+        (edge) => edge.source === nodeId || edge.target === nodeId
+      );
+    }
+
+    // 🔥 복합구성용어 자식 노드: 순차적 소속관계 엣지 제외
+    return edges.value.filter((edge) => {
+      // 해당 노드와 연결된 엣지인지 확인
+      if (edge.source !== nodeId && edge.target !== nodeId) {
+        return false;
+      }
+
+      // 🔥 순차적 소속관계인지 확인
+      const isSequentialComposition =
+        edge.data?.currentRelation?.relType === 'COMPOSITION' &&
+        edge.data?.currentRelation?.rel_expln?.includes('순차적 소속관계');
+
+      // 🔥 같은 복합구성용어 내부의 자식들끼리의 엣지인지 확인
+      const sourceNode = nodes.value.find((n) => n.id === edge.source);
+      const targetNode = nodes.value.find((n) => n.id === edge.target);
+
+      const isBothCompositeChildren =
+        sourceNode?.data.isCompositeChild &&
+        targetNode?.data.isCompositeChild &&
+        sourceNode?.parentNode === targetNode?.parentNode;
+
+      // 🔥 순차적 소속관계이거나 같은 부모의 자식끼리 연결된 엣지는 제외
+      if (isSequentialComposition || isBothCompositeChildren) {
+        return false;
+      }
+
+      return true;
+    });
   };
 
   provide('connectingState', connectingState);
@@ -3758,19 +3794,136 @@
     }
   };
 
-  const flowKey = ref(0);
+  // 🔥 ResizeObserver 인스턴스 저장
+  let resizeObserver = null;
 
-  onMounted(() => {
-    // 새로고침 시 key 변경으로 강제 재렌더링
-    console.log('🌊 onMount Vue Flow 강제 재렌더링 트리거');
-    flowKey.value++;
+  // 🔥 컴포넌트 마운트 시 초기화 (GridPlayGroundComp 방식 적용)
+  onMounted(async () => {
+    console.log('🌊 [onMounted] Vue Flow 초기화 시작');
+
+    // 🔥 Flow를 일단 숨김
+    isFlowReady.value = false;
+
+    // 🔥 DOM 업데이트 대기
+    await nextTick();
+
+    // 🔥 두 프레임 대기 후 렌더링 (완전한 초기화)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        flowKey.value = Date.now(); // 고유한 key 생성
+        isFlowReady.value = true;
+        console.log('✅ [onMounted] VueFlow 렌더링 완료, flowKey:', flowKey.value);
+
+        // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
+        setTimeout(() => {
+          console.log('🔄 [onMounted] window resize 이벤트 발생');
+          window.dispatchEvent(new Event('resize'));
+
+          // 🔥 resize 이벤트 후 추가로 fitView 강제 호출
+          setTimeout(() => {
+            if (nodes.value.length > 0) {
+              console.log('🔄 [onMounted] 강제 fitView 호출');
+              nodes.value.forEach((node) => {
+                updateNodeInternals(node.id);
+              });
+              fitView({ padding: 0.2, duration: 300 });
+              console.log('✅ [onMounted] 패널 완전 초기화 완료');
+            }
+          }, 200);
+        }, 300);
+      });
+    });
+
+    // 🔥 ResizeObserver 설정: 컨테이너 크기 변화 감지
+    setTimeout(() => {
+      if (vueFlowContainer.value) {
+        resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            console.log('📏 [ResizeObserver] 컨테이너 크기 변경 감지:', {
+              width: entry.contentRect.width,
+              height: entry.contentRect.height,
+            });
+
+            // 크기가 변경되면 잠시 후 fitView 호출
+            setTimeout(() => {
+              if (nodes.value.length > 0 && isFlowReady.value) {
+                nodes.value.forEach((node) => {
+                  updateNodeInternals(node.id);
+                });
+                fitView({ padding: 0.2, duration: 200 });
+                console.log('✅ [ResizeObserver] fitView로 뷰 재조정 완료');
+              }
+            }, 100);
+          }
+        });
+
+        resizeObserver.observe(vueFlowContainer.value);
+        console.log('✅ [onMounted] ResizeObserver 설정 완료');
+      }
+    }, 700);
   });
 
-  onActivated(() => {
-    // 탭 전환 시 key 변경으로 강제 재렌더링
-    console.log('🌊 onActivated Vue Flow 강제 재렌더링 트리거');
-    flowKey.value++;
+  // 🔥 컴포넌트 언마운트 시 ResizeObserver 정리
+  onBeforeUnmount(() => {
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
+      console.log('🧹 [onBeforeUnmount] ResizeObserver 정리 완료');
+    }
   });
+
+  onActivated(async () => {
+    console.log('🌊 [onActivated] Vue Flow 재활성화 시작');
+
+    // 🔥 Flow를 일단 숨김
+    isFlowReady.value = false;
+
+    // 🔥 DOM 업데이트 대기
+    await nextTick();
+
+    // 🔥 두 프레임 대기 후 렌더링 (완전한 초기화)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        flowKey.value = Date.now(); // 고유한 key 생성
+        isFlowReady.value = true;
+        console.log('✅ [onActivated] VueFlow 재렌더링 완료, flowKey:', flowKey.value);
+
+        // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
+        setTimeout(() => {
+          console.log('🔄 [onActivated] window resize 이벤트 발생');
+          window.dispatchEvent(new Event('resize'));
+
+          // 🔥 resize 이벤트 후 추가로 fitView 강제 호출
+          setTimeout(() => {
+            if (nodes.value.length > 0) {
+              console.log('🔄 [onActivated] 강제 fitView 호출');
+              nodes.value.forEach((node) => {
+                updateNodeInternals(node.id);
+              });
+              fitView({ padding: 0.2, duration: 300 });
+              console.log('✅ [onActivated] 패널 완전 초기화 완료');
+            }
+          }, 200);
+        }, 300);
+      });
+    });
+  });
+
+  // 🔥 노드가 추가될 때마다 dimension 업데이트
+  watch(
+    () => nodes.value.length,
+    async (newLength, oldLength) => {
+      // 노드가 추가된 경우에만 실행 (Flow가 준비된 상태에서만)
+      if (newLength > oldLength && isFlowReady.value) {
+        await nextTick();
+        // 새로 추가된 노드들의 dimension 업데이트
+        nodes.value.forEach((node) => {
+          updateNodeInternals(node.id);
+        });
+        console.log('✅ [watch] 새 노드 dimension 업데이트 완료');
+      }
+    }
+  );
 
   // 🔥 복합구성용어 내부 자식 노드 간 연결만 표시하는 필터 함수
   const shouldDisplayCompositeChildEdge = (
@@ -3999,7 +4152,7 @@
 
 <style lang="scss" scoped>
   .vue-flow-panel {
-    // width: 100%;
+    width: 100%;
     height: 100%;
     position: relative;
     background: #f8fafc;

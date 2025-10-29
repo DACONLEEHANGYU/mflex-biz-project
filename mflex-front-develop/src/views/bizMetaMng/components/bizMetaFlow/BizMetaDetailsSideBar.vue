@@ -364,13 +364,32 @@
       return [];
     }
 
-    const relationships = props.edges.filter(
-      (edge) =>
-        edge.source === props.selectedItem.id ||
-        edge.target === props.selectedItem.id
+    const nodeId = props.selectedItem.id;
+    const nodeData = props.selectedItem.data;
+
+    // 🔥 해당 노드와 연결된 모든 엣지 필터링
+    let relationships = props.edges.filter(
+      (edge) => edge.source === nodeId || edge.target === nodeId
     );
 
-    console.log('노드 관계:', relationships);
+    // 🔥 복합구성용어 자식 노드인 경우: 순차적 소속관계만 제외
+    if (nodeData?.isCompositeChild) {
+      relationships = relationships.filter((edge) => {
+        // 🔥 순차적 소속관계인지 확인
+        const isSequentialComposition =
+          edge.data?.currentRelation?.relType === 'COMPOSITION' &&
+          edge.data?.currentRelation?.rel_expln?.includes('순차적 소속관계');
+
+        // 🔥 순차적 소속관계만 제외 (실제 비즈니스 관계는 유지)
+        if (isSequentialComposition) {
+          return false;
+        }
+
+        return true;
+      });
+    }
+
+    console.log('사이드바 - 노드 관계 (필터링 후):', relationships);
     return relationships;
   });
 
