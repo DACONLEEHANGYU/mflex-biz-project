@@ -4097,9 +4097,100 @@
     return targetNodeOrder === sourceNodeOrder + 1;
   };
 
+  // 🔥 termId로 노드 제거 (BizMetaSideBar에서 용어 삭제 시 호출)
+  const removeNodesByTermId = async (termId) => {
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🗑️ BizMetaPanel - termId로 노드 제거 요청:', termId);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    // 🔥 해당 termId를 가진 모든 노드 찾기
+    const nodesToRemove = nodes.value.filter(
+      (n) => String(n.data.termId) === String(termId)
+    );
+
+    if (nodesToRemove.length === 0) {
+      console.log('⚠️ 제거할 노드가 없습니다:', termId);
+      return;
+    }
+
+    console.log(
+      `🔍 제거할 노드 ${nodesToRemove.length}개 발견:`,
+      nodesToRemove.map((n) => ({
+        id: n.id,
+        termName: n.data.termName,
+        isCompositeChild: n.data.isCompositeChild,
+      }))
+    );
+
+    // 🔥 각 노드를 제거
+    for (const node of nodesToRemove) {
+      console.log(`🗑️ 노드 제거 시작: ${node.data.termName} (${node.id})`);
+
+      // 🔥 복합구성용어 자식 노드인 경우 특별 처리
+      if (node.data.isCompositeChild && node.parentNode) {
+        const parentNode = nodes.value.find((n) => n.id === node.parentNode);
+        if (parentNode) {
+          console.log(`  📌 복합구성용어 자식 - 부모: ${parentNode.data.termName}`);
+        }
+      }
+
+      // 🔥 연결된 모든 엣지 제거
+      const connectedEdges = edges.value.filter(
+        (edge) => edge.source === node.id || edge.target === node.id
+      );
+
+      console.log(`  🔗 연결된 엣지 ${connectedEdges.length}개 제거`);
+
+      edges.value = edges.value.filter(
+        (edge) => edge.source !== node.id && edge.target !== node.id
+      );
+
+      // 🔥 자식 노드들도 재귀적으로 제거
+      const childNodes = nodes.value.filter((n) => n.parentNode === node.id);
+      if (childNodes.length > 0) {
+        console.log(`  👶 자식 노드 ${childNodes.length}개도 함께 제거`);
+        for (const childNode of childNodes) {
+          // 자식의 연결된 엣지 제거
+          edges.value = edges.value.filter(
+            (edge) =>
+              edge.source !== childNode.id && edge.target !== childNode.id
+          );
+          // 자식 노드 제거
+          const childIndex = nodes.value.findIndex(
+            (n) => n.id === childNode.id
+          );
+          if (childIndex > -1) {
+            nodes.value.splice(childIndex, 1);
+          }
+        }
+      }
+
+      // 🔥 노드 제거
+      const nodeIndex = nodes.value.findIndex((n) => n.id === node.id);
+      if (nodeIndex > -1) {
+        nodes.value.splice(nodeIndex, 1);
+        console.log(`  ✅ 노드 제거 완료: ${node.data.termName}`);
+      }
+
+      // 🔥 부모 노드 스타일 업데이트 (복합구성용어 자식인 경우)
+      if (node.data.isCompositeChild && node.parentNode) {
+        const parentNode = nodes.value.find((n) => n.id === node.parentNode);
+        if (parentNode) {
+          console.log(`  📐 부모 노드 스타일 업데이트: ${parentNode.data.termName}`);
+          await updateParentStyle(parentNode);
+        }
+      }
+    }
+
+    console.log(
+      `✅ termId ${termId}에 해당하는 모든 노드 제거 완료 (${nodesToRemove.length}개)\n`
+    );
+  };
+
   // 🔥 addNode 함수 수정 (복합구성용어 처리 추가)
   defineExpose({
     clearPanel,
+    removeNodesByTermId,
     addNode: async (nodeData) => {
       console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📦 addNode 호출:', nodeData.termName);

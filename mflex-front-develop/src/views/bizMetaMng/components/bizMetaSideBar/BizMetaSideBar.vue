@@ -493,7 +493,7 @@
   const { isUpdate } = storeToRefs(bizMetaStore);
 
   // Emits - 선택된 용어와 드래그 이벤트를 외부로 전달
-  const emit = defineEmits(['term-selected', 'term-dragged']);
+  const emit = defineEmits(['term-selected', 'term-dragged', 'term-deleted']);
 
   // 🔥 내부 상태 관리
   const terms = ref([]);
@@ -1073,6 +1073,10 @@
     try {
       isDeleting.value = true;
       await deleteTermById(termId);
+
+      // 🔥 BizMetaPanel에 용어 삭제 이벤트 전달
+      emit('term-deleted', termId);
+      console.log('✅ term-deleted 이벤트 발생:', termId);
 
       await loadTerms();
 
