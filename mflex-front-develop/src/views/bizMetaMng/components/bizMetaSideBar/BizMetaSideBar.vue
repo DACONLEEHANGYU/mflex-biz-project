@@ -49,7 +49,7 @@
         <button class="refresh-button" @click="loadTerms" title="새로고침">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 20"
+            viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             stroke-width="2"
@@ -57,9 +57,35 @@
             stroke-linejoin="round"
             class="refresh-icon"
           >
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <path d="M20.49 15a9 9 0 1 1 2.13-9.36"></path>
+            <path
+              d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"
+            />
           </svg>
+        </button>
+      </div>
+
+      <!-- 🔥 필터 버튼 그룹 -->
+      <div class="filter-container">
+        <button
+          class="filter-button"
+          :class="{ active: termTypeFilter === 'ALL' }"
+          @click="termTypeFilter = 'ALL'"
+        >
+          전체
+        </button>
+        <button
+          class="filter-button"
+          :class="{ active: termTypeFilter === 'GENERAL' }"
+          @click="termTypeFilter = 'GENERAL'"
+        >
+          일반
+        </button>
+        <button
+          class="filter-button"
+          :class="{ active: termTypeFilter === 'COMPOSITE' }"
+          @click="termTypeFilter = 'COMPOSITE'"
+        >
+          복합구성
         </button>
       </div>
     </div>
@@ -485,6 +511,9 @@
     draggedTermId: null,
     draggedTerm: null,
   });
+
+  // 🔥 필터 상태 추가
+  const termTypeFilter = ref('ALL');
 
   // 드래그 이미지 컨테이너 참조
   const dragImageContainer = ref(null);
@@ -935,19 +964,29 @@
     });
   };
 
+  // 🔥 필터링 로직 수정
   const filteredTerms = computed(() => {
-    if (!searchTerm.value.trim()) {
-      return terms.value;
+    let result = terms.value;
+
+    // 검색어 필터링
+    if (searchTerm.value.trim()) {
+      const query = searchTerm.value.toLowerCase().trim();
+      result = result.filter(
+        (term) =>
+          term.termName.toLowerCase().includes(query) ||
+          (term.description &&
+            term.description.toLowerCase().includes(query)) ||
+          (term.domain && term.domain.toLowerCase().includes(query)) ||
+          (term.registeredBy && term.registeredBy.toLowerCase().includes(query))
+      );
     }
 
-    const query = searchTerm.value.toLowerCase().trim();
-    return terms.value.filter(
-      (term) =>
-        term.termName.toLowerCase().includes(query) ||
-        (term.description && term.description.toLowerCase().includes(query)) ||
-        (term.domain && term.domain.toLowerCase().includes(query)) ||
-        (term.registeredBy && term.registeredBy.toLowerCase().includes(query))
-    );
+    // 용어 타입 필터링
+    if (termTypeFilter.value !== 'ALL') {
+      result = result.filter((term) => term.termType === termTypeFilter.value);
+    }
+
+    return result;
   });
 
   const totalPages = computed(() =>
@@ -1439,20 +1478,62 @@
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 
-    svg {
-      width: 16px;
-      height: 16px;
+    .refresh-icon {
+      width: 18px;
+      height: 18px;
       color: #6b7280;
+      transition: transform 0.3s ease;
     }
 
     &:hover {
       background: #e5e7eb;
       border-color: #9ca3af;
+
+      .refresh-icon {
+        transform: rotate(180deg);
+      }
     }
 
     &:active {
       background: #d1d5db;
+    }
+  }
+
+  // 🔥 필터 버튼 그룹 스타일
+  .filter-container {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .filter-button {
+    flex: 1;
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    &.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
+      font-weight: 600;
+    }
+
+    &:active {
+      transform: scale(0.98);
     }
   }
 
