@@ -45,6 +45,22 @@
             </svg>
           </button>
         </div>
+        <!-- 리프레시 버튼 -->
+        <button class="refresh-button" @click="loadTerms" title="새로고침">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="refresh-icon"
+          >
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1 2.13-9.36"></path>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -1406,13 +1422,45 @@
   }
 
   .search-container {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* 검색창과 리프레시 버튼 간격 */
+    width: 100%; /* 컨테이너가 부모 요소에 꽉 차도록 설정 */
+  }
+
+  .refresh-button {
+    width: 35px;
+    height: 35px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    svg {
+      width: 16px;
+      height: 16px;
+      color: #6b7280;
+    }
+
+    &:hover {
+      background: #e5e7eb;
+      border-color: #9ca3af;
+    }
+
+    &:active {
+      background: #d1d5db;
+    }
   }
 
   .search-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
+    flex: 1; /* 검색창이 남은 공간을 채우도록 설정 */
   }
 
   .search-icon {
@@ -1425,7 +1473,7 @@
   }
 
   .search-input {
-    width: 100%;
+    width: 100%; /* 검색창이 부모 요소에 꽉 차도록 설정 */
     padding: 8px 32px 8px 30px;
     border: 1px solid #d1d5db;
     border-radius: 6px;

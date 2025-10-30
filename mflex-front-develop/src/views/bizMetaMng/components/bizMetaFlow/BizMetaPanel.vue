@@ -2768,7 +2768,10 @@
 
         if (!existingAsParent) {
           previousChild.data.relations.asParent.push(newRelation);
-          console.log(`  ✅ previousChild.relations.asParent에 관계 추가:`, newRelation);
+          console.log(
+            `  ✅ previousChild.relations.asParent에 관계 추가:`,
+            newRelation
+          );
         } else {
           console.log(`  ℹ️ previousChild.relations.asParent에 이미 존재`);
         }
@@ -2782,15 +2785,24 @@
 
         if (!existingAsPassive) {
           childNode.data.relations.asPassive.push(newRelation);
-          console.log(`  ✅ childNode.relations.asPassive에 관계 추가:`, newRelation);
+          console.log(
+            `  ✅ childNode.relations.asPassive에 관계 추가:`,
+            newRelation
+          );
         } else {
           console.log(`  ℹ️ childNode.relations.asPassive에 이미 존재`);
         }
 
-        console.log(`📊 previousChild.relations.asParent 총 ${previousChild.data.relations.asParent.length}개`);
-        console.log(`📊 childNode.relations.asPassive 총 ${childNode.data.relations.asPassive.length}개`);
+        console.log(
+          `📊 previousChild.relations.asParent 총 ${previousChild.data.relations.asParent.length}개`
+        );
+        console.log(
+          `📊 childNode.relations.asPassive 총 ${childNode.data.relations.asPassive.length}개`
+        );
 
-        console.log('✅ relations 데이터 업데이트 완료 - 엣지는 리프레시 단계에서 자동 생성됨');
+        console.log(
+          '✅ relations 데이터 업데이트 완료 - 엣지는 리프레시 단계에서 자동 생성됨'
+        );
       } catch (error) {
         console.error('❌ 순차적 소속관계 생성 실패:', error);
       }
@@ -2969,7 +2981,11 @@
         child.extent = 'parent';
         child.hidden = false;
 
-        console.log(`  [${index + 1}] ${child.data.termName} 위치: x=${childStartX}, y=${child.position.y}`);
+        console.log(
+          `  [${index + 1}] ${child.data.termName} 위치: x=${childStartX}, y=${
+            child.position.y
+          }`
+        );
       });
 
       // 🔥 DOM 업데이트 대기
@@ -3402,7 +3418,7 @@
   const clearPanel = () => {
     if (nodes.value.length === 0) return;
 
-    if (confirm('모든 노드를 삭제하시겠습니까?')) {
+    if (confirm('패널의 내 모든 용어를 제거하겠습니까?')) {
       nodes.value = [];
       edges.value = [];
       nodeIdCounter = 1;
@@ -3557,8 +3573,8 @@
 
     // 🔥 삭제 확인 메시지
     const confirmMessage = isCompositeChild
-      ? `'${node.data.termName}' 노드를 복합구성용어에서 제거하시겠습니까?\n(복합구성 관계가 삭제됩니다)`
-      : `'${node.data.termName}' 노드를 삭제하시겠습니까?`;
+      ? `'${node.data.termName}' 용어를 복합구성용어에서 제거하시겠습니까?\n(복합구성 관계가 삭제됩니다)`
+      : `'${node.data.termName}' 용어를 패널에서 제거하시겠습니까?`;
 
     if (!confirm(confirmMessage)) return;
 
@@ -3811,7 +3827,8 @@
           const childNodes = [];
           const parentBackgroundWidth = 400;
           // 🔥 자식 노드 중앙 정렬을 위한 시작 X 위치 계산
-          const childStartX = (parentBackgroundWidth - CHILD_LAYOUT.childWidth) / 2;
+          const childStartX =
+            (parentBackgroundWidth - CHILD_LAYOUT.childWidth) / 2;
 
           for (let index = 0; index < sortedChildren.length; index++) {
             const compositeChild = sortedChildren[index];
