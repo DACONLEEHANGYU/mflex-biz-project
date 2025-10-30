@@ -1394,15 +1394,63 @@
 
     console.log('🔥 최신 compositeRelations 가져옴:', newCompositeRelations);
 
-    // 🔥 부모 노드 찾기
-    const parentNode = nodes.value.find(
-      (n) =>
-        n.data.termType === 'COMPOSITE' &&
-        String(n.data.termId) === String(compositeId)
+    // 🔥 디버깅: compositeId 확인
+    console.log('🔍 찾으려는 compositeId:', compositeId);
+
+    // 🔥 디버깅: 모든 COMPOSITE 노드 확인
+    const compositeNodes = nodes.value.filter(
+      (n) => n.data.termType === 'COMPOSITE'
     );
+    console.log(
+      '🔍 패널에 있는 COMPOSITE 노드들:',
+      compositeNodes.map((n) => ({
+        id: n.id,
+        termId: n.data.termId,
+        termName: n.data.termName,
+        termType: n.data.termType,
+      }))
+    );
+
+    // 🔥 부모 노드 찾기 (termType 조건 제거 - termId만으로 찾기)
+    let parentNode = nodes.value.find(
+      (n) => String(n.data.termId) === String(compositeId)
+    );
+
+    // 🔥 만약 termId로 찾을 수 없다면, 자식 노드에서 부모 찾기
+    if (!parentNode) {
+      console.warn(
+        '⚠️ compositeId로 부모 노드를 찾을 수 없습니다. 자식 노드에서 부모를 찾습니다.'
+      );
+
+      // 자식 노드들 중에서 compositeId가 일치하는 노드 찾기
+      const childNode = nodes.value.find(
+        (n) =>
+          n.data.isCompositeChild &&
+          String(n.data.compositeId) === String(compositeId)
+      );
+
+      if (childNode && childNode.parentNode) {
+        parentNode = nodes.value.find((n) => n.id === childNode.parentNode);
+        console.log(
+          '✅ 자식 노드를 통해 부모 노드 찾음:',
+          parentNode?.data.termName
+        );
+      }
+    }
 
     if (!parentNode) {
       console.error('❌ 부모 노드를 찾을 수 없습니다:', compositeId);
+      console.log(
+        '🔍 현재 패널의 모든 노드:',
+        nodes.value.map((n) => ({
+          id: n.id,
+          termId: n.data.termId,
+          termName: n.data.termName,
+          termType: n.data.termType,
+          isCompositeChild: n.data.isCompositeChild,
+          compositeId: n.data.compositeId,
+        }))
+      );
       return;
     }
 
@@ -1825,7 +1873,7 @@
         (n) => n.id === draggedNode.parentNode
       );
       if (parentNode) {
-        updateParentStyle(parentNode);
+        await updateParentStyle(parentNode);
       }
       isDraggingForNesting.value = false;
       return;
@@ -1964,7 +2012,7 @@
     // 부모 스타일 업데이트
     const parentNode = nodes.value.find((n) => n.id === parentId);
     if (parentNode) {
-      updateParentStyle(parentNode);
+      await updateParentStyle(parentNode);
     }
 
     // 🔥 API 호출
@@ -2449,8 +2497,8 @@
     console.log(`   자식: ${childNode.data.termName} (${childId})`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 🔥 부모 노드 배경 너비
-    const parentBackgroundWidth = 440;
+    // 🔥 부모 노드 배경 너비 및 자식 노드 중앙 정렬을 위한 시작 X 위치
+    const parentBackgroundWidth = 400;
     const childStartX = (parentBackgroundWidth - CHILD_LAYOUT.childWidth) / 2;
 
     // 🔥 중첩 부모 노드에는 자식 추가 불가
@@ -2481,7 +2529,7 @@
       const oldParent = nodes.value.find((n) => n.id === childNode.parentNode);
       if (oldParent) {
         childNode.parentNode = null;
-        updateParentStyle(oldParent);
+        await updateParentStyle(oldParent);
       }
     }
 
@@ -2518,37 +2566,15 @@
 
     console.log(`📊 기존 자식 수: ${existingChildren.length}개`);
 
-    // 부모 설정
-    childNode.parentNode = parentId;
-    childNode.extent = 'parent';
-    childNode.hidden = false;
-
     const childIndex = existingChildren.length;
     const newOrder = childIndex + 1;
 
     console.log(`📍 새 자식 순번: ${newOrder}`);
 
-    // 🔥🔥🔥 1단계: 위치 설정
-    childNode.position = {
-      x: CHILD_LAYOUT.horizontalPadding,
-      y:
-        CHILD_LAYOUT.headerHeight +
-        childIndex * (CHILD_LAYOUT.childHeight + CHILD_LAYOUT.childGap),
-    };
-
-    childNode.style = {
-      width: `${CHILD_LAYOUT.childWidth}px`,
-      minWidth: `${CHILD_LAYOUT.childWidth}px`,
-      maxWidth: `${CHILD_LAYOUT.childWidth}px`,
-      height: `${CHILD_LAYOUT.childHeight}px`,
-      minHeight: `${CHILD_LAYOUT.childHeight}px`,
-    };
-
-    // 🔥🔥🔥 데이터 업데이트 (isCompositeChild 플래그 추가)
+    // 🔥🔥🔥 1단계: 자식 노드 데이터만 먼저 업데이트 (부모 연결 제외)
     childNode.data = {
       ...childNode.data,
       order: newOrder,
-      parentNode: parentId,
       isNestedParent: isChildComposite && hasCompositeChildren,
       hasHiddenChildren: isChildComposite && hasCompositeChildren,
       isHidden: false,
@@ -2562,18 +2588,62 @@
         : 0,
     };
 
-    console.log('✅ 자식 노드 데이터 업데이트 완료 (isCompositeChild: true)');
+    // 🔥🔥🔥 2단계: 부모 노드를 먼저 isParent로 설정
+    if (!parentNode.data.isParent) {
+      parentNode.data = {
+        ...parentNode.data,
+        isParent: true,
+        isTopLevelParent: !parentNode.parentNode,
+      };
+    }
 
-    // 🔥🔥🔥 2단계: 부모 스타일 업데이트 (위치 재계산)
-    updateParentStyle(parentNode);
+    // 🔥 부모 스타일을 먼저 업데이트 (extent 계산을 위해)
+    await updateParentStyle(parentNode);
 
-    // 🔥 DOM 렌더링 완료 대기
+    console.log('✅ 부모 스타일 업데이트 완료');
+
+    // 🔥 충분히 대기하여 부모 DOM이 완전히 렌더링되도록 함
+    await nextTick();
+    await nextTick();
+    await nextTick();
+
+    // 🔥🔥🔥 3단계: 이제 자식 노드를 부모에 연결
+    childNode.parentNode = parentId;
+    childNode.extent = 'parent';
+    childNode.hidden = false;
+    childNode.data.parentNode = parentId;
+
+    // 🔥 위치 설정 (중앙 정렬)
+    childNode.position = {
+      x: childStartX,
+      y:
+        CHILD_LAYOUT.headerHeight +
+        childIndex * (CHILD_LAYOUT.childHeight + CHILD_LAYOUT.childGap),
+    };
+
+    childNode.style = {
+      width: `${CHILD_LAYOUT.childWidth}px`,
+      minWidth: `${CHILD_LAYOUT.childWidth}px`,
+      maxWidth: `${CHILD_LAYOUT.childWidth}px`,
+      height: `${CHILD_LAYOUT.childHeight}px`,
+      minHeight: `${CHILD_LAYOUT.childHeight}px`,
+    };
+
+    console.log('✅ 자식 노드 위치 및 부모 연결 완료');
+
+    // 🔥 DOM 업데이트 대기 및 노드 내부 정보 강제 업데이트
     await nextTick();
     await nextTick();
 
-    console.log('✅ 위치 설정 완료');
+    updateNodeInternals(parentNode.id);
+    updateNodeInternals(childNode.id);
 
-    // 🔥🔥🔥 3단계: 복합구성용어 관계 생성 API 호출
+    // 🔥 다시 한번 부모 스타일 업데이트 (모든 자식 포함)
+    await updateParentStyle(parentNode);
+
+    console.log('✅ 최종 위치 설정 및 중앙 정렬 완료');
+
+    // 🔥🔥🔥 4단계: 복합구성용어 관계 생성 API 호출
     const compositeData = {
       compositeTermId: parentNode.data.termId,
       compositeTermName: parentNode.data.termName,
@@ -2609,7 +2679,7 @@
       console.error('❌ 복합구성용어 관계 생성 실패:', error);
     }
 
-    // 🔥🔥🔥 4단계: 순차적 소속관계 생성 (이전 자식과의 엣지 연결)
+    // 🔥🔥🔥 5단계: 순차적 소속관계 생성 (이전 자식과의 엣지 연결)
     if (existingChildren.length > 0) {
       const previousChild = existingChildren[existingChildren.length - 1];
 
@@ -2681,72 +2751,7 @@
           pairCompositeRelations
         );
 
-        // 🔥 Handle ID 생성 (이전 자식의 하단 → 새 자식의 상단)
-        const sourceHandle = `${previousChild.id}-bottom-source`;
-        const targetHandle = `${childNode.id}-top-target`;
-
-        console.log(`📍 엣지 핸들 정보:`, {
-          previousChild: {
-            id: previousChild.id,
-            termName: previousChild.data.termName,
-            order: previousChild.data.order,
-          },
-          newChild: {
-            id: childNode.id,
-            termName: childNode.data.termName,
-            order: newOrder,
-          },
-          sourceHandle: sourceHandle,
-          targetHandle: targetHandle,
-        });
-
-        // 🔥 엣지 생성 (복합구성용어 자식 전용)
-        const sequentialEdge = {
-          id: `edge-${edgeIdCounter++}`,
-          source: previousChild.id,
-          target: childNode.id,
-          sourceHandle: sourceHandle,
-          targetHandle: targetHandle,
-          type: 'relationshipEdge',
-          animated: false,
-          style: {
-            stroke: colorMap['COMPOSITION'],
-            strokeWidth: 2.5,
-          },
-          data: {
-            relationshipId: newRelation.termRelId,
-            relationshipType: newRelation.relType,
-            description: newRelation.rel_expln,
-            isBidirectional: false,
-            isAutoGenerated: true,
-            isSequential: true,
-            isCompositeChild: true, // 🔥 복합구성용어 자식 플래그
-            availableRelations: allRelations, // 🔥 모든 관계 저장
-            compositeRelations: pairCompositeRelations,
-            termCompositeRelId:
-              pairCompositeRelations[0]?.termCompositerRelId || null,
-            compositeId: pairCompositeRelations[0]?.compositeId || null,
-            compositeTermOrder:
-              pairCompositeRelations[0]?.compositeTermOrder || null,
-            createdAt: new Date().toISOString(),
-            sourceNodeName: previousChild.data.termName,
-            targetNodeName: childNode.data.termName,
-          },
-        };
-
-        edges.value.push(sequentialEdge);
-
-        console.log(`✅ 엣지 생성 완료:`);
-        console.log(
-          `   소스: ${previousChild.data.termName} (${sourceHandle})`
-        );
-        console.log(`   타겟: ${childNode.data.termName} (${targetHandle})`);
-        console.log(
-          `   사용 가능한 관계: ${allRelations.length}개`,
-          allRelations
-        );
-
-        // 🔥 relations 데이터 업데이트
+        // 🔥 relations 데이터 업데이트 (엣지는 나중에 자동 생성됨)
         if (!previousChild.data.relations) {
           previousChild.data.relations = { asParent: [], asPassive: [] };
         }
@@ -2763,6 +2768,9 @@
 
         if (!existingAsParent) {
           previousChild.data.relations.asParent.push(newRelation);
+          console.log(`  ✅ previousChild.relations.asParent에 관계 추가:`, newRelation);
+        } else {
+          console.log(`  ℹ️ previousChild.relations.asParent에 이미 존재`);
         }
 
         const existingAsPassive = childNode.data.relations.asPassive.find(
@@ -2774,13 +2782,15 @@
 
         if (!existingAsPassive) {
           childNode.data.relations.asPassive.push(newRelation);
+          console.log(`  ✅ childNode.relations.asPassive에 관계 추가:`, newRelation);
+        } else {
+          console.log(`  ℹ️ childNode.relations.asPassive에 이미 존재`);
         }
 
-        // 🔥 엣지 갱신
-        await nextTick();
-        await refreshEdges();
+        console.log(`📊 previousChild.relations.asParent 총 ${previousChild.data.relations.asParent.length}개`);
+        console.log(`📊 childNode.relations.asPassive 총 ${childNode.data.relations.asPassive.length}개`);
 
-        console.log('✅ 엣지 UI 갱신 완료');
+        console.log('✅ relations 데이터 업데이트 완료 - 엣지는 리프레시 단계에서 자동 생성됨');
       } catch (error) {
         console.error('❌ 순차적 소속관계 생성 실패:', error);
       }
@@ -2801,63 +2811,42 @@
     );
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 🔥 복합구성용어 자식으로 추가된 후 관계선 리프레시
+    // 🔥🔥🔥 복합구성용어 자식으로 추가된 후 관계선 리프레시
     console.log('\n🔄 관계선 리프레시 시작...');
 
-    // 1️⃣ 자식 노드와 연결된 모든 엣지에서 관련 노드 ID 수집
-    const relatedNodeIds = new Set();
-    edges.value.forEach((edge) => {
-      if (edge.source === childId || edge.target === childId) {
-        if (edge.source !== childId) relatedNodeIds.add(edge.source);
-        if (edge.target !== childId) relatedNodeIds.add(edge.target);
+    // 🔥 최신 compositeRelations 조회 (순서 변경과 동일한 로직)
+    console.log('\n📡 최신 compositeRelations 조회 중...');
+
+    let latestCompositeRelations = null;
+
+    try {
+      latestCompositeRelations = await getNewCompositeRelations(
+        parentNode.data.termId
+      );
+
+      console.log(
+        '✅ 최신 compositeRelations 조회 완료:',
+        latestCompositeRelations?.length || 0,
+        '개'
+      );
+
+      // 🔥 부모 노드의 compositeRelations 업데이트
+      if (latestCompositeRelations && latestCompositeRelations.length > 0) {
+        parentNode.data.compositeRelations = latestCompositeRelations;
+        console.log('✅ 부모 노드 compositeRelations 업데이트 완료');
       }
-    });
+    } catch (error) {
+      console.error('❌ compositeRelations 조회 실패:', error);
+      latestCompositeRelations = parentNode.data.compositeRelations || [];
+    }
 
-    console.log(`📊 관련된 노드 수: ${relatedNodeIds.size}개`);
-
-    // 2️⃣ 자식 노드의 자동 생성 엣지 제거
-    edges.value = edges.value.filter(
-      (edge) =>
-        !(
-          (edge.source === childId || edge.target === childId) &&
-          edge.data.isAutoGenerated
-        )
+    // 🔥🔥🔥 순차적 소속관계 재구성 (순서 변경과 동일한 로직 사용)
+    await reconstructSequentialCompositionEdges(
+      parentId,
+      latestCompositeRelations
     );
 
-    console.log(`✅ 자식 노드(${childNode.data.termName})의 자동 엣지 제거 완료`);
-
-    // 3️⃣ DOM 렌더링 완료 대기 후 엣지 재생성
-    await nextTick();
-    await nextTick();
-
-    // 4️⃣ 자식 노드의 엣지 재생성
-    createAutoEdgesForNode(childNode);
-    console.log(`✅ 자식 노드(${childNode.data.termName})의 엣지 재생성 완료`);
-
-    // 5️⃣ 관련된 다른 노드들의 엣지도 재생성
-    relatedNodeIds.forEach((nodeId) => {
-      const relatedNode = nodes.value.find((n) => n.id === nodeId);
-      if (relatedNode && !relatedNode.data.isCompositeChild) {
-        // 기존 자동 엣지 제거
-        edges.value = edges.value.filter(
-          (edge) =>
-            !(
-              (edge.source === nodeId || edge.target === nodeId) &&
-              edge.data.isAutoGenerated
-            )
-        );
-        // 엣지 재생성
-        createAutoEdgesForNode(relatedNode);
-        console.log(`✅ 관련 노드(${relatedNode.data.termName})의 엣지 재생성 완료`);
-      }
-    });
-
-    // 6️⃣ 모든 비동기 작업 완료 대기 및 최종 엣지 리프레시
-    await nextTick();
-    await nextTick();
-    await refreshEdges();
-
-    console.log('✅ 관계선 리프레시 완료\n');
+    console.log('✅ 관계선 리프레시 완료 - 모든 자식 노드 간 엣지 표시됨\n');
 
     emit('parent-child-created', {
       childId,
@@ -2871,7 +2860,7 @@
   };
 
   // 🔥 부모 노드 스타일 업데이트 (숨겨진 자식 제외)
-  const updateParentStyle = (parentNode) => {
+  const updateParentStyle = async (parentNode) => {
     const children = nodes.value
       .filter((n) => n.parentNode === parentNode.id && !n.hidden)
       .sort((a, b) => (a.data.order || 0) - (b.data.order || 0));
@@ -2892,6 +2881,13 @@
 
       // 🔥 자식 노드를 중앙에 배치하기 위한 시작 x 위치 계산
       const childStartX = (parentBackgroundWidth - CHILD_LAYOUT.childWidth) / 2;
+
+      console.log(`\n📐 중앙 정렬 계산:`, {
+        parentBackgroundWidth,
+        childWidth: CHILD_LAYOUT.childWidth,
+        childStartX,
+        childrenCount: children.length,
+      });
 
       if (isTopLevel) {
         parentNode.style = {
@@ -2954,8 +2950,9 @@
           isHidden: false,
         };
 
+        // 🔥 중앙 정렬 적용: childStartX 사용
         child.position = {
-          x: CHILD_LAYOUT.horizontalPadding,
+          x: childStartX,
           y:
             CHILD_LAYOUT.headerHeight +
             index * (CHILD_LAYOUT.childHeight + CHILD_LAYOUT.childGap),
@@ -2971,11 +2968,25 @@
 
         child.extent = 'parent';
         child.hidden = false;
+
+        console.log(`  [${index + 1}] ${child.data.termName} 위치: x=${childStartX}, y=${child.position.y}`);
       });
 
-      nextTick(() => {
-        refreshEdges();
+      // 🔥 DOM 업데이트 대기
+      await nextTick();
+      await nextTick();
+
+      // 🔥 Vue Flow에 노드 위치 업데이트 알림
+      children.forEach((child) => {
+        updateNodeInternals(child.id);
       });
+      updateNodeInternals(parentNode.id);
+
+      console.log('✅ 자식 노드 중앙 정렬 완료 및 렌더링 업데이트\n');
+
+      // 🔥 엣지 리프레시
+      await nextTick();
+      await refreshEdges();
     } else {
       // 자식이 없으면 일반 노드로 복원
       parentNode.style = {
@@ -3604,14 +3615,14 @@
         console.log(
           `📐 부모 노드 업데이트: ${parentNode.data.termName} (자식 제거 후)`
         );
-        updateParentStyle(parentNode);
+        await updateParentStyle(parentNode);
       }
 
       // 🔥 일반 부모-자식 관계인 경우
       if (node.parentNode && !isCompositeChild) {
         const parent = nodes.value.find((n) => n.id === node.parentNode);
         if (parent) {
-          updateParentStyle(parent);
+          await updateParentStyle(parent);
         }
       }
 
@@ -3799,6 +3810,8 @@
 
           const childNodes = [];
           const parentBackgroundWidth = 400;
+          // 🔥 자식 노드 중앙 정렬을 위한 시작 X 위치 계산
+          const childStartX = (parentBackgroundWidth - CHILD_LAYOUT.childWidth) / 2;
 
           for (let index = 0; index < sortedChildren.length; index++) {
             const compositeChild = sortedChildren[index];
@@ -3822,7 +3835,7 @@
               extent: 'parent',
               draggable: true,
               position: {
-                x: CHILD_LAYOUT.horizontalPadding,
+                x: childStartX,
                 y:
                   CHILD_LAYOUT.headerHeight +
                   index * (CHILD_LAYOUT.childHeight + CHILD_LAYOUT.childGap),
@@ -3881,10 +3894,7 @@
           await nextTick();
 
           console.log('🎨 부모 스타일 업데이트 시작');
-          updateParentStyle(parentNode);
-
-          // 🔥 다시 한번 nextTick으로 렌더링 완료 대기
-          await nextTick();
+          await updateParentStyle(parentNode);
 
           console.log('✅ 부모 스타일 업데이트 완료');
 
@@ -4172,7 +4182,7 @@
 
         // 🔥 부모 노드 스타일 업데이트
         await nextTick();
-        updateParentStyle(parentNode);
+        await updateParentStyle(parentNode);
 
         console.log(
           `\n✅ 복합구성용어 자식 노드 생성 완료 (총 ${childNodes.length}개)`

@@ -511,7 +511,7 @@
       // width: 360px !important;
       min-width: 200px !important;
       max-width: 360px !important;
-      right: 18px;
+      // right: 18px;
       // margin-top: 50px;
       margin .child-order {
         background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
