@@ -1149,6 +1149,37 @@
 
     if (newEdges.length > 0) {
       edges.value.push(...newEdges);
+
+      // 🔥🔥🔥 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리
+      console.log('\n🔄 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리 시작...');
+
+      newEdges.forEach((edge) => {
+        // 복합구성용어 내부 자식 간 엣지는 제외
+        if (edge.data?.isCompositeChild === true) {
+          return;
+        }
+
+        const sourceNode = nodes.value.find((n) => n.id === edge.source);
+        const targetNode = nodes.value.find((n) => n.id === edge.target);
+
+        if (!sourceNode || !targetNode) return;
+
+        const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
+        const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
+
+        // 한쪽만 복합구성용어 자식인 경우 엣지 숨김
+        if (
+          (isSourceCompositeChild && !isTargetCompositeChild) ||
+          (!isSourceCompositeChild && isTargetCompositeChild)
+        ) {
+          console.log(
+            `   🚫 엣지 숨김: ${sourceNode.data.termName} → ${targetNode.data.termName}`
+          );
+          edge.hidden = true;
+        }
+      });
+
+      console.log('✅ 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리 완료\n');
     }
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -2859,6 +2890,47 @@
     );
 
     console.log('✅ 관계선 리프레시 완료 - 모든 자식 노드 간 엣지 표시됨\n');
+
+    // 🔥🔥🔥 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리
+    console.log('\n🔄 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리 시작...');
+
+    // childNode와 연결된 모든 엣지 찾기
+    const childEdges = edges.value.filter(
+      (edge) => edge.source === childId || edge.target === childId
+    );
+
+    console.log(`📊 ${childNode.data.termName}와 연결된 엣지: ${childEdges.length}개`);
+
+    // 각 엣지에 대해 한쪽이 복합구성용어 자식이고 다른 쪽이 일반 노드인지 확인
+    childEdges.forEach((edge) => {
+      const sourceNode = nodes.value.find((n) => n.id === edge.source);
+      const targetNode = nodes.value.find((n) => n.id === edge.target);
+
+      if (!sourceNode || !targetNode) return;
+
+      // 복합구성용어 내부 자식 간 관계는 제외 (이미 처리됨)
+      if (edge.data?.isCompositeChild === true) {
+        console.log(`   ⏭️ 복합구성용어 내부 엣지 제외: ${edge.id}`);
+        return;
+      }
+
+      // 한쪽이 복합구성용어 자식이고, 다른 쪽이 일반 노드인 경우
+      const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
+      const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
+
+      // 한쪽만 복합구성용어 자식인 경우 엣지 숨김
+      if (
+        (isSourceCompositeChild && !isTargetCompositeChild) ||
+        (!isSourceCompositeChild && isTargetCompositeChild)
+      ) {
+        console.log(
+          `   🚫 엣지 숨김: ${sourceNode.data.termName} → ${targetNode.data.termName}`
+        );
+        edge.hidden = true;
+      }
+    });
+
+    console.log('✅ 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리 완료\n');
 
     emit('parent-child-created', {
       childId,
