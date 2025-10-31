@@ -1,8 +1,8 @@
 <template>
   <!-- filepath: c:\Users\dacon008\workspace\mflex-project\mflex-front\src\views\bizMetaMng\components\bizMetaFlow\BizMetaPanel.vue -->
   <div class="vue-flow-panel">
-    <!-- 🔥 상단 컨트롤 버튼들 (사이드바 상태에 따라 이동) -->
-    <div class="flow-controls" :class="{ 'sidebar-open': sidebarRef?.isOpen }">
+    <!-- 🔥 상단 컨트롤 버튼들 -->
+    <div class="flow-controls" :class="{ 'details-open': sidebarRef?.isOpen }">
       <button
         class="control-button add-term"
         @click="toggleAddTermMode"
@@ -341,7 +341,7 @@
     </div>
 
     <!-- 안내 메시지 -->
-    <div v-if="isAddTermMode && !showTermPopup" class="instruction-message">
+    <div v-if="isAddTermMode && !showTermPopup" class="instruction-message" :class="{ 'details-open': sidebarRef?.isOpen }">
       <div class="instruction-content">
         <svg viewBox="0 0 20 20" fill="currentColor">
           <path
@@ -1162,8 +1162,10 @@
 
         if (!sourceNode || !targetNode) return true;
 
-        const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
-        const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
+        const isSourceCompositeChild =
+          sourceNode.data?.isCompositeChild === true;
+        const isTargetCompositeChild =
+          targetNode.data?.isCompositeChild === true;
 
         // 한쪽만 복합구성용어 자식인 경우 엣지 제외
         if (
@@ -1180,7 +1182,11 @@
       });
 
       edges.value.push(...validEdges);
-      console.log(`✅ ${validEdges.length}개의 유효한 엣지 추가 (${newEdges.length - validEdges.length}개 제외)\n`);
+      console.log(
+        `✅ ${validEdges.length}개의 유효한 엣지 추가 (${
+          newEdges.length - validEdges.length
+        }개 제외)\n`
+      );
     }
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -1570,11 +1576,11 @@
   // 🔥 자식 노드 레이아웃 상수 (수정)
   const CHILD_LAYOUT = {
     headerHeight: 150, // 🔥 타이틀 영역 높이
-    childHeight: 120,
-    childGap: 80,
+    childHeight: 85,
+    childGap: 140,
     rightPadding: 20,
     horizontalPadding: 40,
-    childWidth: 360,
+    childWidth: 290,
     bottomPadding: 20,
   };
 
@@ -2660,7 +2666,9 @@
 
     // 엣지 제거
     if (edgesToRemove.length > 0) {
-      edges.value = edges.value.filter(edge => !edgesToRemove.includes(edge.id));
+      edges.value = edges.value.filter(
+        (edge) => !edgesToRemove.includes(edge.id)
+      );
       console.log(`✅ ${edgesToRemove.length}개의 엣지 즉시 제거 완료`);
 
       // 엣지 리프레시
@@ -4212,7 +4220,9 @@
       if (node.data.isCompositeChild && node.parentNode) {
         const parentNode = nodes.value.find((n) => n.id === node.parentNode);
         if (parentNode) {
-          console.log(`  📌 복합구성용어 자식 - 부모: ${parentNode.data.termName}`);
+          console.log(
+            `  📌 복합구성용어 자식 - 부모: ${parentNode.data.termName}`
+          );
         }
       }
 
@@ -4258,7 +4268,9 @@
       if (node.data.isCompositeChild && node.parentNode) {
         const parentNode = nodes.value.find((n) => n.id === node.parentNode);
         if (parentNode) {
-          console.log(`  📐 부모 노드 스타일 업데이트: ${parentNode.data.termName}`);
+          console.log(
+            `  📐 부모 노드 스타일 업데이트: ${parentNode.data.termName}`
+          );
           await updateParentStyle(parentNode);
         }
       }
@@ -4483,16 +4495,16 @@
 
   // 🔥 컨트롤 버튼 (사이드바 상태에 따라 이동)
   .flow-controls {
-    position: absolute;
-    top: 16px;
+    position: fixed;
+    top: 95px;
     right: 16px;
     display: flex;
     gap: 8px;
     z-index: 10;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    &.sidebar-open {
-      right: 416px;
+    &.details-open {
+      right: 432px; // 400px (sidebar width) + 16px (sidebar right) + 16px (margin)
     }
   }
 
@@ -4780,8 +4792,8 @@
     pointer-events: none;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    .flow-controls.sidebar-open ~ & {
-      right: 416px;
+    &.details-open {
+      right: 432px; // 400px (sidebar width) + 16px (sidebar right) + 16px (margin)
     }
   }
 
@@ -5022,10 +5034,6 @@
       top: 8px;
       right: 8px;
       flex-direction: column;
-
-      &.sidebar-open {
-        right: 8px;
-      }
     }
 
     .term-popup {
@@ -5038,10 +5046,6 @@
     .instruction-message {
       top: 60px;
       right: 8px;
-
-      .flow-controls.sidebar-open ~ & {
-        right: 8px;
-      }
     }
 
     .drag-indicator {

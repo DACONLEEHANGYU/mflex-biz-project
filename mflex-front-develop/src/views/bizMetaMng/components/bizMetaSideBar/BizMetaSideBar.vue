@@ -1,7 +1,8 @@
 <template>
   <!-- filepath: c:\Users\dacon008\workspace\mflex-project\mflex-front\src\views\bizMetaMng\components\bizMetaSideBar\BizMetaSideBar.vue -->
-  <div class="biz-meta-sidebar">
-    <!-- 헤더 -->
+  <div class="sidebar-wrapper">
+    <div class="biz-meta-sidebar" :class="{ 'sidebar-collapsed': !sidebarOpen }">
+      <!-- 헤더 -->
     <div class="sidebar-header">
       <!-- 제목과 추가 버튼 -->
       <div class="header-top">
@@ -256,6 +257,7 @@
         </div>
       </div>
     </div>
+  </div>
 
     <!-- 🔥 툴팁 팝업 -->
     <Teleport to="body">
@@ -453,12 +455,35 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 🔥 토글 버튼 -->
+    <button
+      class="sidebar-toggle-button"
+      :class="{ 'button-collapsed': !sidebarOpen }"
+      @click="handleToggleSidebar"
+      :title="'사이드바 ' + (sidebarOpen ? '닫기' : '열기')"
+    >
+      <svg v-if="sidebarOpen" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fill-rule="evenodd"
+          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      <svg v-else viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fill-rule="evenodd"
+          d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+          clip-rule="evenodd"
+        />
+      </svg>
+    </button>
   </div>
 </template>
 
 <script setup>
   // filepath: c:\Users\dacon008\workspace\mflex-project\mflex-front\src\views\bizMetaMng\components\bizMetaSideBar\BizMetaSideBar.vue
-  // 기존 import에 nextTick 추가
+  // 기존 import에 nextTick, inject 추가
   import {
     ref,
     computed,
@@ -467,7 +492,19 @@
     onUnmounted,
     provide,
     nextTick,
+    inject,
   } from 'vue';
+
+  // 🔥 부모로부터 사이드바 토글 함수와 상태 받기
+  const toggleSidebar = inject('toggleSidebar', null);
+  const sidebarOpen = inject('sidebarOpen', ref(true));
+
+  // 🔥 토글 버튼 클릭 핸들러
+  const handleToggleSidebar = () => {
+    if (toggleSidebar) {
+      toggleSidebar();
+    }
+  };
 
   import {
     getBizTerms, // 비즈니스 용어 조회
@@ -1399,18 +1436,80 @@
 </script>
 
 <style lang="scss" scoped>
+  .sidebar-wrapper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 350px;
+    height: 100%;
+    z-index: 100;
+  }
+
   .biz-meta-sidebar {
-    width: 330px;
-    min-width: 330px;
-    max-width: 500px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 350px;
     height: 100%;
     background: white;
     border-right: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-    position: relative;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+
+    // 🔥 접혔을 때
+    &.sidebar-collapsed {
+      transform: translateX(-100%);
+    }
+  }
+
+  // 🔥 토글 버튼
+  .sidebar-toggle-button {
+    position: absolute;
+    left: 350px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 80px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+
+    svg {
+      width: 20px;
+      height: 20px;
+      color: #64748b;
+      transition: color 0.2s ease;
+    }
+
+    &:hover {
+      background: #f8fafc;
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+
+      svg {
+        color: #3b82f6;
+      }
+    }
+
+    &:active {
+      background: #e2e8f0;
+    }
+
+    // 🔥 사이드바가 접혔을 때
+    &.button-collapsed {
+      transform: translateX(-350px) translateY(-50%);
+    }
   }
 
   .sidebar-header {

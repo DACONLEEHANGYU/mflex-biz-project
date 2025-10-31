@@ -5,22 +5,18 @@
         <div class="content-row">
           <div class="bg-box">
             <div class="tab-inner pb0">
-              <DragCol
-                width="100%"
-                height="100%"
-                :leftPercent="22"
-                :sliderWidth="15"
-              >
-                <template #left>
-                  <!-- <TopInstituteListComp /> -->
-                  <BizMetaSideBar @term-deleted="handleTermDeleted" />
-                </template>
-                <template #right>
-                  <!-- <DatabaseSchemaMappingComp /> -->
-                  <!-- <InstituteDetailsComp /> -->
+              <div class="biz-meta-container">
+                <!-- 왼쪽 사이드바 -->
+                <BizMetaSideBar
+                  ref="sidebarRef"
+                  @term-deleted="handleTermDeleted"
+                />
+
+                <!-- 메인 패널 -->
+                <div class="biz-meta-main" :class="{ 'sidebar-collapsed': !sidebarOpen }">
                   <BizMetaPanel ref="bizMetaPanelRef" />
-                </template>
-              </DragCol>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -31,10 +27,22 @@
 
 <!-- eslint-disable vue/no-unused-components -->
 <script setup>
-  import { ref } from 'vue';
-  import { DragCol } from 'vue-resizer';
+  import { ref, provide } from 'vue';
   import BizMetaSideBar from '@/views/bizMetaMng/components/bizMetaSideBar/BizMetaSideBar.vue';
   import BizMetaPanel from '@/views/bizMetaMng/components/bizMetaFlow/BizMetaPanel.vue';
+
+  // 🔥 사이드바 상태 (기본값: 열림)
+  const sidebarOpen = ref(true);
+  const sidebarRef = ref(null);
+
+  // 🔥 사이드바 토글 함수
+  const toggleSidebar = () => {
+    sidebarOpen.value = !sidebarOpen.value;
+  };
+
+  // 🔥 자식 컴포넌트에서 사용할 수 있도록 provide
+  provide('toggleSidebar', toggleSidebar);
+  provide('sidebarOpen', sidebarOpen);
 
   // 🔥 BizMetaPanel ref
   const bizMetaPanelRef = ref(null);
@@ -53,5 +61,24 @@
     height: 100%;
     box-sizing: border-box;
     padding: 0;
+  }
+
+  .biz-meta-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .biz-meta-main {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    margin-left: 350px;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .biz-meta-main.sidebar-collapsed {
+    margin-left: 0;
   }
 </style>

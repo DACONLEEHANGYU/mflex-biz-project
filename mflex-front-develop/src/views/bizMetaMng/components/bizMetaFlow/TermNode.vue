@@ -509,8 +509,9 @@
     &[data-parent].composite-child {
       // border-left: 4px solid #a78bfa;
       // width: 360px !important;
-      min-width: 200px !important;
+      min-width: 150px !important;
       max-width: 360px !important;
+      padding: 0 !important;
       // right: 18px;
       // margin-top: 50px;
       margin .child-order {

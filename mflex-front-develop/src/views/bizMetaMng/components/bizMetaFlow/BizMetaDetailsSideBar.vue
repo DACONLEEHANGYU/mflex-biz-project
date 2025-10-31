@@ -106,60 +106,136 @@
             </div>
           </div>
 
-          <!-- 🔥 관계 정보 (삭제 버튼 추가) -->
+          <!-- 🔥 관계 정보 (시작점/끝점 구분) -->
           <div class="detail-section" v-if="nodeRelationships.length > 0">
             <div class="section-header">
               <h4 class="section-title">관계 정보</h4>
               <span class="count-badge">{{ nodeRelationships.length }}</span>
             </div>
 
-            <div class="relationships-list">
-              <div
-                v-for="rel in nodeRelationships"
-                :key="rel.id"
-                class="relationship-item"
-              >
+            <!-- 이 용어에서 시작하는 관계 -->
+            <div v-if="outgoingRelationships.length > 0" class="relationship-group">
+              <div class="group-header outgoing">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="group-icon">
+                  <path
+                    fill-rule="evenodd"
+                    d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span class="group-title">이 용어에서 시작</span>
+                <span class="group-count">{{ outgoingRelationships.length }}</span>
+              </div>
+              <div class="relationships-list">
                 <div
-                  class="relationship-content"
-                  @click="selectRelationship(rel)"
+                  v-for="rel in outgoingRelationships"
+                  :key="rel.id"
+                  class="relationship-item outgoing"
                 >
-                  <div class="relationship-type">
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      class="rel-icon"
-                    >
+                  <div
+                    class="relationship-content"
+                    @click="selectRelationship(rel)"
+                  >
+                    <div class="relationship-type">
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        class="rel-icon"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                      <span>{{
+                        getRelationshipTypeText(rel.data?.relationshipType)
+                      }}</span>
+                    </div>
+                    <div class="relationship-nodes">
+                      <span class="node-name highlight">{{ getNodeName(rel.source) }}</span>
+                      <span class="arrow">→</span>
+                      <span class="node-name">{{ getNodeName(rel.target) }}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    class="delete-relation-button"
+                    @click.stop="deleteRelationship(rel)"
+                    title="관계 삭제"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor">
                       <path
                         fill-rule="evenodd"
-                        d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+                        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
                         clip-rule="evenodd"
                       />
                     </svg>
-                    <span>{{
-                      getRelationshipTypeText(rel.data?.relationshipType)
-                    }}</span>
-                  </div>
-                  <div class="relationship-nodes">
-                    <span class="node-name">{{ getNodeName(rel.source) }}</span>
-                    <span class="arrow">→</span>
-                    <span class="node-name">{{ getNodeName(rel.target) }}</span>
-                  </div>
+                  </button>
                 </div>
+              </div>
+            </div>
 
-                <!-- 🔥 관계 삭제 버튼 -->
-                <button
-                  class="delete-relation-button"
-                  @click.stop="deleteRelationship(rel)"
-                  title="관계 삭제"
+            <!-- 이 용어로 향하는 관계 -->
+            <div v-if="incomingRelationships.length > 0" class="relationship-group">
+              <div class="group-header incoming">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="group-icon">
+                  <path
+                    fill-rule="evenodd"
+                    d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span class="group-title">이 용어로 향함</span>
+                <span class="group-count">{{ incomingRelationships.length }}</span>
+              </div>
+              <div class="relationships-list">
+                <div
+                  v-for="rel in incomingRelationships"
+                  :key="rel.id"
+                  class="relationship-item incoming"
                 >
-                  <svg viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fill-rule="evenodd"
-                      d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </button>
+                  <div
+                    class="relationship-content"
+                    @click="selectRelationship(rel)"
+                  >
+                    <div class="relationship-type">
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        class="rel-icon"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                      <span>{{
+                        getRelationshipTypeText(rel.data?.relationshipType)
+                      }}</span>
+                    </div>
+                    <div class="relationship-nodes">
+                      <span class="node-name">{{ getNodeName(rel.source) }}</span>
+                      <span class="arrow">→</span>
+                      <span class="node-name highlight">{{ getNodeName(rel.target) }}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    class="delete-relation-button"
+                    @click.stop="deleteRelationship(rel)"
+                    title="관계 삭제"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fill-rule="evenodd"
+                        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -417,6 +493,26 @@
     return relationships;
   });
 
+  // 🔥 이 용어에서 시작하는 관계 (outgoing)
+  const outgoingRelationships = computed(() => {
+    if (!props.selectedItem || props.selectedItem.type !== 'node') {
+      return [];
+    }
+
+    const nodeId = props.selectedItem.id;
+    return nodeRelationships.value.filter((edge) => edge.source === nodeId);
+  });
+
+  // 🔥 이 용어로 향하는 관계 (incoming)
+  const incomingRelationships = computed(() => {
+    if (!props.selectedItem || props.selectedItem.type !== 'node') {
+      return [];
+    }
+
+    const nodeId = props.selectedItem.id;
+    return nodeRelationships.value.filter((edge) => edge.target === nodeId);
+  });
+
   const toggleSidebar = () => {
     isOpen.value = !isOpen.value;
   };
@@ -559,15 +655,16 @@
 
 <style lang="scss" scoped>
   .biz-meta-sidebar {
-    position: absolute;
+    position: fixed;
     top: 0;
-    right: 0;
+    right: 16px;
     bottom: 0;
     width: 400px;
     background: white;
     border-left: 1px solid #e2e8f0;
-    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.05);
-    transform: translateX(100%);
+    border-radius: 8px 0 0 8px;
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.08);
+    transform: translateX(calc(100% + 16px));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 50;
     display: flex;
@@ -832,6 +929,62 @@
     }
   }
 
+  // 🔥 관계 그룹
+  .relationship-group {
+    margin-top: 12px;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  // 🔥 그룹 헤더
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+
+    &.outgoing {
+      background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    &.incoming {
+      background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+      color: #be185d;
+      border: 1px solid #f9a8d4;
+    }
+
+    .group-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .group-title {
+      flex: 1;
+    }
+
+    .group-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      background: white;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+  }
+
   // Relationships List
   .relationships-list {
     display: flex;
@@ -844,15 +997,24 @@
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 12px;
-    display: flex; // 🔥 추가
-    align-items: center; // 🔥 추가
-    justify-content: space-between; // 🔥 추가
-    gap: 8px; // 🔥 추가
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     transition: all 0.2s ease;
+
+    &.outgoing {
+      border-left: 3px solid #3b82f6;
+    }
+
+    &.incoming {
+      border-left: 3px solid #ec4899;
+    }
 
     &:hover {
       border-color: #3b82f6;
       box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+      transform: translateX(2px);
     }
 
     // 🔥 관계 콘텐츠 영역 추가
@@ -867,12 +1029,29 @@
       gap: 6px;
       font-size: 12px;
       font-weight: 600;
-      color: #3b82f6;
       margin-bottom: 6px;
 
       .rel-icon {
         width: 14px;
         height: 14px;
+      }
+    }
+
+    // 🔥 outgoing 관계 타입 색상
+    &.outgoing .relationship-type {
+      color: #0369a1;
+
+      .rel-icon {
+        color: #0369a1;
+      }
+    }
+
+    // 🔥 incoming 관계 타입 색상
+    &.incoming .relationship-type {
+      color: #be185d;
+
+      .rel-icon {
+        color: #be185d;
       }
     }
 
@@ -952,10 +1131,20 @@
       .node-name {
         font-weight: 500;
         color: #1e293b;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+
+        &.highlight {
+          font-weight: 700;
+          color: #3b82f6;
+          background: #dbeafe;
+        }
       }
 
       .arrow {
         color: #94a3b8;
+        font-weight: 700;
       }
     }
   }
