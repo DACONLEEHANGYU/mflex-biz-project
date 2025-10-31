@@ -1148,38 +1148,39 @@
     console.log(`\n📊 [결과] 총 ${newEdges.length}개의 엣지 생성됨`);
 
     if (newEdges.length > 0) {
-      edges.value.push(...newEdges);
+      // 🔥🔥🔥 복합구성용어 자식과 일반 노드 간 엣지는 추가하지 않음
+      console.log('\n🔄 복합구성용어 자식과 일반 노드 간 엣지 필터링 시작...');
 
-      // 🔥🔥🔥 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리
-      console.log('\n🔄 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리 시작...');
-
-      newEdges.forEach((edge) => {
-        // 복합구성용어 내부 자식 간 엣지는 제외
+      const validEdges = newEdges.filter((edge) => {
+        // 복합구성용어 내부 자식 간 엣지는 추가
         if (edge.data?.isCompositeChild === true) {
-          return;
+          return true;
         }
 
         const sourceNode = nodes.value.find((n) => n.id === edge.source);
         const targetNode = nodes.value.find((n) => n.id === edge.target);
 
-        if (!sourceNode || !targetNode) return;
+        if (!sourceNode || !targetNode) return true;
 
         const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
         const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
 
-        // 한쪽만 복합구성용어 자식인 경우 엣지 숨김
+        // 한쪽만 복합구성용어 자식인 경우 엣지 제외
         if (
           (isSourceCompositeChild && !isTargetCompositeChild) ||
           (!isSourceCompositeChild && isTargetCompositeChild)
         ) {
           console.log(
-            `   🚫 엣지 숨김: ${sourceNode.data.termName} → ${targetNode.data.termName}`
+            `   🚫 엣지 생성 제외: ${sourceNode.data.termName} → ${targetNode.data.termName}`
           );
-          edge.hidden = true;
+          return false;
         }
+
+        return true;
       });
 
-      console.log('✅ 복합구성용어 자식과 일반 노드 간 엣지 숨김 처리 완료\n');
+      edges.value.push(...validEdges);
+      console.log(`✅ ${validEdges.length}개의 유효한 엣지 추가 (${newEdges.length - validEdges.length}개 제외)\n`);
     }
 
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
@@ -2619,6 +2620,56 @@
         : 0,
     };
 
+    // 🔥🔥🔥 즉시 복합구성용어 자식과 일반 노드 간 관계선 제거
+    console.log('\n🔄 복합구성용어 자식과 일반 노드 간 관계선 제거 시작...');
+
+    const edgesToRemove = [];
+
+    edges.value.forEach((edge) => {
+      // childNode와 연결되지 않은 엣지는 건너뜀
+      if (edge.source !== childId && edge.target !== childId) {
+        return;
+      }
+
+      const sourceNode = nodes.value.find((n) => n.id === edge.source);
+      const targetNode = nodes.value.find((n) => n.id === edge.target);
+
+      if (!sourceNode || !targetNode) return;
+
+      // 복합구성용어 내부 자식 간 관계는 제외
+      if (edge.data?.isCompositeChild === true) {
+        console.log(`   ⏭️ 복합구성용어 내부 엣지 유지: ${edge.id}`);
+        return;
+      }
+
+      // 한쪽이 복합구성용어 자식이고, 다른 쪽이 일반 노드인 경우
+      const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
+      const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
+
+      // 한쪽만 복합구성용어 자식인 경우 엣지 제거 대상에 추가
+      if (
+        (isSourceCompositeChild && !isTargetCompositeChild) ||
+        (!isSourceCompositeChild && isTargetCompositeChild)
+      ) {
+        console.log(
+          `   🚫 엣지 제거: ${sourceNode.data.termName} → ${targetNode.data.termName} (${edge.id})`
+        );
+        edgesToRemove.push(edge.id);
+      }
+    });
+
+    // 엣지 제거
+    if (edgesToRemove.length > 0) {
+      edges.value = edges.value.filter(edge => !edgesToRemove.includes(edge.id));
+      console.log(`✅ ${edgesToRemove.length}개의 엣지 즉시 제거 완료`);
+
+      // 엣지 리프레시
+      await nextTick();
+      await refreshEdges();
+    }
+
+    console.log('✅ 복합구성용어 자식과 일반 노드 간 관계선 제거 완료\n');
+
     // 🔥🔥🔥 2단계: 부모 노드를 먼저 isParent로 설정
     if (!parentNode.data.isParent) {
       parentNode.data = {
@@ -2890,47 +2941,6 @@
     );
 
     console.log('✅ 관계선 리프레시 완료 - 모든 자식 노드 간 엣지 표시됨\n');
-
-    // 🔥🔥🔥 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리
-    console.log('\n🔄 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리 시작...');
-
-    // childNode와 연결된 모든 엣지 찾기
-    const childEdges = edges.value.filter(
-      (edge) => edge.source === childId || edge.target === childId
-    );
-
-    console.log(`📊 ${childNode.data.termName}와 연결된 엣지: ${childEdges.length}개`);
-
-    // 각 엣지에 대해 한쪽이 복합구성용어 자식이고 다른 쪽이 일반 노드인지 확인
-    childEdges.forEach((edge) => {
-      const sourceNode = nodes.value.find((n) => n.id === edge.source);
-      const targetNode = nodes.value.find((n) => n.id === edge.target);
-
-      if (!sourceNode || !targetNode) return;
-
-      // 복합구성용어 내부 자식 간 관계는 제외 (이미 처리됨)
-      if (edge.data?.isCompositeChild === true) {
-        console.log(`   ⏭️ 복합구성용어 내부 엣지 제외: ${edge.id}`);
-        return;
-      }
-
-      // 한쪽이 복합구성용어 자식이고, 다른 쪽이 일반 노드인 경우
-      const isSourceCompositeChild = sourceNode.data?.isCompositeChild === true;
-      const isTargetCompositeChild = targetNode.data?.isCompositeChild === true;
-
-      // 한쪽만 복합구성용어 자식인 경우 엣지 숨김
-      if (
-        (isSourceCompositeChild && !isTargetCompositeChild) ||
-        (!isSourceCompositeChild && isTargetCompositeChild)
-      ) {
-        console.log(
-          `   🚫 엣지 숨김: ${sourceNode.data.termName} → ${targetNode.data.termName}`
-        );
-        edge.hidden = true;
-      }
-    });
-
-    console.log('✅ 복합구성용어 자식과 일반 노드 간 관계선 숨김 처리 완료\n');
 
     emit('parent-child-created', {
       childId,
