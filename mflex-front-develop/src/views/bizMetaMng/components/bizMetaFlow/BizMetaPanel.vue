@@ -5168,7 +5168,7 @@
     }
   }
 
-  // 🔥 복합구성용어 자식 노드의 Handle
+  // 🔥 복합구성용어 자식 노드의 Handle러
   :deep(.vue-flow__node.composite-child) {
     // 좌우 Handle 숨김
     .vue-flow__handle-left,
