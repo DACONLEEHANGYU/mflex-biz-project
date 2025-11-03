@@ -173,33 +173,42 @@
         <div class="relationships-list">
           <div
             v-for="(rel, index) in sourceTargetRelationships"
-            :key="rel.id"
+            :key="rel.termRelId || index"
             class="relationship-item"
-            :class="{ active: rel.id === props.id }"
+            :class="{
+              active:
+                rel.termRelId === currentDisplayRelation?.termRelId ||
+                rel.relType === currentDisplayRelation?.relType,
+            }"
             @click.stop="handleRelationshipItemClick(rel)"
           >
             <div class="item-number">{{ index + 1 }}</div>
             <div
               class="rel-icon"
               :style="{
-                background: getRelationshipColor(rel.data.relationshipType),
+                background: getRelationshipColor(rel.relType),
               }"
             >
               <svg viewBox="0 0 20 20" fill="currentColor">
-                <path :d="getRelationshipIcon(rel.data.relationshipType)" />
+                <path :d="getRelationshipIcon(rel.relType)" />
               </svg>
             </div>
             <div class="rel-content">
               <div class="rel-header">
                 <span class="rel-type">{{
-                  getRelationshipLabel(rel.data.relationshipType)
+                  getRelationshipLabel(rel.relType)
                 }}</span>
-                <span v-if="rel.id === props.id" class="current-badge"
+                <span
+                  v-if="
+                    rel.termRelId === currentDisplayRelation?.termRelId ||
+                    rel.relType === currentDisplayRelation?.relType
+                  "
+                  class="current-badge"
                   >현재</span
                 >
               </div>
-              <div v-if="rel.data.description" class="rel-description">
-                {{ rel.data.description }}
+              <div v-if="rel.rel_expln" class="rel-description">
+                {{ rel.rel_expln }}
               </div>
             </div>
           </div>
@@ -709,27 +718,104 @@
     return label;
   });
 
-  // 🔥 소스-타겟 동일 쌍 관계들 (복합구성 자식 제외)
-  const sourceTargetRelationships = computed(() => {
-    const allEdges = getAllEdges();
-    return allEdges.filter(
-      (edge) =>
-        edge.source === props.source &&
-        edge.target === props.target &&
-        !edge.data?.isCompositeChild // 복합구성 자식 엣지 제외
+  // 🔥🔥🔥 단일 엣지의 관계 배열 (일반 노드 + 복합구성 자식 통합)
+  const edgeRelationships = computed(() => {
+    // 복합구성용어 자식 엣지: availableRelations 사용
+    if (isCompositeChildEdge.value) {
+      const relations = (props.data?.availableRelations || []).filter(
+        (rel) => rel && rel.relType
+      );
+      console.log(
+        `🔍 [edgeRelationships] 복합구성 자식 - availableRelations:`,
+        relations.length,
+        '개'
+      );
+      return relations;
+    }
+
+    // 일반 노드 엣지: relationships 배열 사용
+    // relationships가 없으면 기존 단일 관계 데이터로 배열 생성 (하위 호환)
+    if (props.data?.relationships && props.data.relationships.length > 0) {
+      // 🔥 undefined 또는 유효하지 않은 관계 필터링
+      const validRelationships = props.data.relationships.filter(
+        (rel) => rel && rel.relType
+      );
+      console.log(
+        `🔍 [edgeRelationships] 일반 노드 - relationships:`,
+        validRelationships.length,
+        '개 (원본:',
+        props.data.relationships.length,
+        '개)'
+      );
+      return validRelationships;
+    }
+
+    // 🔥 하위 호환: relationships 배열이 없는 구 엣지는 단일 관계로 처리
+    if (!props.data?.relationshipType) {
+      console.warn('⚠️ [edgeRelationships] relationshipType 없음:', props.data);
+      return [];
+    }
+
+    const fallbackRelation = {
+      termRelId: props.data?.relationshipId,
+      relType: props.data?.relationshipType,
+      rel_expln: props.data?.description || '',
+      regDate: props.data?.createdAt,
+    };
+    console.log(
+      `🔍 [edgeRelationships] 하위 호환 - 단일 관계:`,
+      fallbackRelation.relType
     );
+    return [fallbackRelation];
   });
 
-  // 🔥 소스-타겟 관계 개수
-  const sourceTargetRelationshipCount = computed(() => {
-    return sourceTargetRelationships.value.length;
+  // 🔥 관계 개수
+  const relationshipCount = computed(() => {
+    const count = edgeRelationships.value.length;
+    console.log(`🔍 [relationshipCount] ${count}개`);
+    return count;
   });
 
-  // 🔥 여러 소스-타겟 관계 존재 여부 (일반 노드만)
-  const hasMultipleSourceTargetRelationships = computed(() => {
+  // 🔥 여러 관계 존재 여부
+  const hasMultipleRelationships = computed(() => {
+    const hasMultiple = relationshipCount.value > 1;
+    console.log(
+      `🔍 [hasMultipleRelationships] ${hasMultiple} (count: ${relationshipCount.value})`
+    );
+    return hasMultiple;
+  });
+
+  // 🔥 현재 표시 중인 관계 (기본: 첫 번째 또는 COMPOSITION)
+  const currentDisplayRelation = computed(() => {
+    if (isCompositeChildEdge.value && compositeRelations.value.length > 0) {
+      // 복합구성용어는 기존 로직 사용
+      const activeCompositeRel = compositeRelations.value[0];
+      return (
+        edgeRelationships.value.find(
+          (rel) =>
+            String(rel.termRelId) === String(activeCompositeRel.compositeRelId)
+        ) || edgeRelationships.value[0]
+      );
+    }
+
+    // 일반 노드: COMPOSITION 우선, 없으면 첫 번째
     return (
-      !isCompositeChildEdge.value && sourceTargetRelationships.value.length > 1
+      edgeRelationships.value.find((r) => r.relType === 'COMPOSITION') ||
+      edgeRelationships.value[0]
     );
+  });
+
+  // 🔥 하위 호환: sourceTargetRelationships (기존 코드 호환용)
+  const sourceTargetRelationships = computed(() => {
+    return edgeRelationships.value;
+  });
+
+  const sourceTargetRelationshipCount = computed(() => {
+    return relationshipCount.value;
+  });
+
+  const hasMultipleSourceTargetRelationships = computed(() => {
+    return hasMultipleRelationships.value;
   });
 
   // 🔥 소스에서 시작하는 모든 관계
@@ -759,14 +845,18 @@
     return props.data?.isBidirectional === true;
   });
 
-  // 🔥 관계 라벨
+  // 🔥 관계 라벨 (현재 표시 중인 관계 기준)
   const relationshipLabel = computed(() => {
-    return getRelationshipLabel(props.data?.relationshipType);
+    if (hasMultipleRelationships.value) {
+      // 여러 관계가 있으면 마름모만 표시 (라벨 숨김)
+      return null;
+    }
+    return getRelationshipLabel(currentDisplayRelation.value?.relType);
   });
 
-  // 🔥 관계 아이콘
+  // 🔥 관계 아이콘 (현재 표시 중인 관계 기준)
   const relationshipIcon = computed(() => {
-    return getRelationshipIcon(props.data?.relationshipType);
+    return getRelationshipIcon(currentDisplayRelation.value?.relType);
   });
 
   // 🔥 엣지 경로
@@ -782,9 +872,13 @@
     return path;
   });
 
-  // 🔥 통일된 색상
+  // 🔥 통일된 색상 (현재 표시 중인 관계 기준)
   const edgeColor = computed(() => {
-    return props.selected ? '#10b981' : '#64748b';
+    if (props.selected) return '#10b981';
+
+    // 현재 표시 중인 관계의 색상
+    const relType = currentDisplayRelation.value?.relType;
+    return getRelationshipColor(relType);
   });
 
   // 🔥 통일된 엣지 스타일
@@ -908,9 +1002,22 @@
     emit('edge-click', { edge: edgeData });
   };
 
-  // 🔥 관계 항목 클릭 (수정 - 툴팁 닫기 추가)
+  // 🔥 관계 항목 클릭 (현재 엣지 정보와 선택된 관계 정보 전달)
   const handleRelationshipItemClick = (rel) => {
-    emit('edge-click', { edge: rel });
+    // 현재 엣지 정보 전체 전달 (rel은 관계 데이터만 포함)
+    const edgeData = {
+      id: props.id,
+      source: props.source,
+      target: props.target,
+      data: props.data,
+      sourceHandle: props.sourceHandle,
+      targetHandle: props.targetHandle,
+      style: props.style,
+      type: 'relationshipEdge',
+      selectedRelation: rel, // 선택된 관계 정보 추가
+    };
+
+    emit('edge-click', { edge: edgeData });
     closeTooltip();
   };
 

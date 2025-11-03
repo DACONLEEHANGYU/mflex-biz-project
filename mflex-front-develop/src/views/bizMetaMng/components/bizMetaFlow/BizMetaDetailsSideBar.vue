@@ -450,13 +450,11 @@
     });
 
     // 🔥 해당 노드와 연결된 모든 엣지 필터링
-    let relationships = props.edges.filter(
+    let edges = props.edges.filter(
       (edge) => edge.source === nodeId || edge.target === nodeId
     );
 
-    console.log(
-      `📊 [nodeRelationships] 전체 연결된 엣지: ${relationships.length}개`
-    );
+    console.log(`📊 [nodeRelationships] 전체 연결된 엣지: ${edges.length}개`);
 
     // 🔥 복합구성용어 자식 노드인 경우: 내부 자식 간 관계 제외
     if (nodeData?.isCompositeChild) {
@@ -466,7 +464,7 @@
       console.log('🔥 [nodeRelationships] 복합구성용어 자식 - 필터링 적용');
       console.log(`   부모 노드 ID: ${parentNodeId}`);
 
-      relationships = relationships.filter((edge) => {
+      edges = edges.filter((edge) => {
         const sourceNode = props.nodes.find((n) => n.id === edge.source);
         const targetNode = props.nodes.find((n) => n.id === edge.target);
 
@@ -485,12 +483,63 @@
         return true;
       });
 
-      console.log(
-        `✅ [nodeRelationships] 필터링 후: ${relationships.length}개`
-      );
+      console.log(`✅ [nodeRelationships] 필터링 후: ${edges.length}개`);
     }
 
-    return relationships;
+    // 🔥🔥🔥 각 엣지의 relationships 배열을 펼쳐서 개별 관계 항목 생성
+    const allRelationships = [];
+
+    edges.forEach((edge) => {
+      // 복합구성용어 자식: availableRelations 사용
+      if (edge.data?.isCompositeChild && edge.data?.availableRelations) {
+        edge.data.availableRelations.forEach((rel) => {
+          allRelationships.push({
+            ...edge, // 엣지 정보 포함
+            relationData: rel, // 개별 관계 데이터
+            // 하위 호환: 기존 data 필드 유지
+            data: {
+              ...edge.data,
+              relationshipType: rel.relType,
+              relationshipId: rel.termRelId,
+              description: rel.rel_expln,
+            },
+          });
+        });
+      }
+      // 일반 노드: relationships 배열 사용
+      else if (edge.data?.relationships && edge.data.relationships.length > 0) {
+        edge.data.relationships.forEach((rel) => {
+          allRelationships.push({
+            ...edge, // 엣지 정보 포함
+            relationData: rel, // 개별 관계 데이터
+            // 하위 호환: 기존 data 필드 유지
+            data: {
+              ...edge.data,
+              relationshipType: rel.relType,
+              relationshipId: rel.termRelId,
+              description: rel.rel_expln,
+            },
+          });
+        });
+      }
+      // 하위 호환: relationships 없는 구 엣지
+      else {
+        allRelationships.push({
+          ...edge,
+          relationData: {
+            termRelId: edge.data?.relationshipId,
+            relType: edge.data?.relationshipType,
+            rel_expln: edge.data?.description || '',
+          },
+        });
+      }
+    });
+
+    console.log(
+      `✅ [nodeRelationships] 총 ${allRelationships.length}개 관계 (${edges.length}개 엣지)`
+    );
+
+    return allRelationships;
   });
 
   // 🔥 이 용어에서 시작하는 관계 (outgoing)
@@ -527,31 +576,63 @@
     emit('select-relationship', rel);
   };
 
-  // 🔥 관계 삭제 함수 (노드 상세에서)
+  // 🔥 관계 삭제 함수 (노드 상세에서) - relationships 배열 지원
   const deleteRelationship = (rel) => {
     const sourceNodeName = getNodeName(rel.source);
     const targetNodeName = getNodeName(rel.target);
     const relType = getRelationshipTypeText(rel.data?.relationshipType);
 
     console.log('삭제할 관계:', rel);
+    console.log('삭제할 관계 데이터:', rel.relationData);
 
     if (
       confirm(
         `"${sourceNodeName} → ${targetNodeName}" 관계(${relType})를 삭제하시겠습니까?`
       )
     ) {
-      deleteBizTermRelation(rel.data.relationshipId)
+      // 🔥 relationshipId 가져오기 (relationData 우선)
+      const relationshipId =
+        rel.relationData?.termRelId || rel.data?.relationshipId;
+
+      deleteBizTermRelation(relationshipId)
         .then(() => {
           console.log('관계 삭제 성공:', rel);
-          emit('delete-relationship', rel);
+
+          // 🔥🔥🔥 원본 엣지를 찾아서 relationships 배열에서 해당 관계 제거
+          const originalEdge = props.edges.find((e) => e.id === rel.id);
+
+          if (originalEdge && originalEdge.data.relationships) {
+            // relationships 배열에서 해당 관계 제거
+            const index = originalEdge.data.relationships.findIndex(
+              (r) => r.termRelId === relationshipId
+            );
+
+            if (index !== -1) {
+              originalEdge.data.relationships.splice(index, 1);
+              console.log(
+                `✅ 관계 제거 완료 (남은 관계: ${originalEdge.data.relationships.length}개)`
+              );
+
+              // 🔥 relationships 배열이 비면 엣지 전체 삭제
+              if (originalEdge.data.relationships.length === 0) {
+                console.log('🔥 마지막 관계 삭제 - 엣지 전체 삭제');
+                emit('delete-relationship', originalEdge);
+              } else {
+                // 🔥 Vue 반응성 트리거 (엣지는 유지)
+                emit('update-edge', originalEdge);
+              }
+            }
+          } else {
+            // 하위 호환: relationships 배열이 없는 구 엣지는 전체 삭제
+            emit('delete-relationship', rel);
+          }
+
           setIsUpdate(true);
         })
         .catch((error) => {
           console.error('관계 삭제 실패:', error);
           alert('관계 삭제에 실패했습니다. 다시 시도해주세요.');
         });
-      // console.log('관계 삭제:', rel);
-      // emit('delete-relationship', rel);
     }
   };
 

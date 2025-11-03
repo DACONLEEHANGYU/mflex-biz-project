@@ -148,6 +148,7 @@
         @close="handleSidebarClose"
         @select-relationship="handleSelectRelationship"
         @delete-relationship="handleDeleteRelationship"
+        @update-edge="handleUpdateEdge"
         @delete-edge="handleDeleteEdge"
       />
     </div>
@@ -341,7 +342,11 @@
     </div>
 
     <!-- 안내 메시지 -->
-    <div v-if="isAddTermMode && !showTermPopup" class="instruction-message" :class="{ 'details-open': sidebarRef?.isOpen }">
+    <div
+      v-if="isAddTermMode && !showTermPopup"
+      class="instruction-message"
+      :class="{ 'details-open': sidebarRef?.isOpen }"
+    >
       <div class="instruction-content">
         <svg viewBox="0 0 20 20" fill="currentColor">
           <path
@@ -876,14 +881,45 @@
               }
             }
 
-            if (
-              !isDuplicateEdge(
-                newNode.id,
-                targetNode.id,
-                rel.relType,
-                rel.termRelId
-              )
-            ) {
+            // 🔥🔥🔥 동일한 source-target 쌍에 이미 엣지가 있는지 확인 (relationType 무관)
+            // 1. newEdges 배열에서 찾기
+            let existingEdge = newEdges.find(
+              (e) => e.source === newNode.id && e.target === targetNode.id
+            );
+
+            // 2. edges.value에서도 찾기 (이미 생성된 엣지)
+            if (!existingEdge) {
+              existingEdge = edges.value.find(
+                (e) =>
+                  e.source === newNode.id &&
+                  e.target === targetNode.id &&
+                  !e.data.isCompositeChild
+              );
+            }
+
+            if (existingEdge) {
+              // 🔥 기존 엣지에 관계 추가
+              if (!existingEdge.data.relationships) {
+                existingEdge.data.relationships = [];
+              }
+
+              // 중복 관계 체크
+              const isDuplicate = existingEdge.data.relationships.some(
+                (r) => r.termRelId === rel.termRelId
+              );
+
+              if (!isDuplicate) {
+                existingEdge.data.relationships.push(rel);
+                console.log(
+                  `      ✅ 기존 엣지에 관계 추가 (총 ${existingEdge.data.relationships.length}개)`
+                );
+              } else {
+                console.log(`      ⏭️ 이미 추가된 관계`);
+              }
+
+              processedRelations.add(relationKey);
+            } else {
+              // 🔥 새 엣지 생성
               const { sourceHandle, targetHandle } = selectOptimalHandles(
                 newNode,
                 targetNode
@@ -920,8 +956,8 @@
                   createdAt: rel.regDate || new Date().toISOString(),
                   sourceNodeName: newNode.data.termName,
                   targetNodeName: targetNode.data.termName,
-                  availableRelations:
-                    allRelations.length > 0 ? allRelations : undefined, // 🔥🔥🔥
+                  // 🔥🔥🔥 relationships 배열로 통일
+                  relationships: allRelations.length > 0 ? allRelations : [rel],
                   compositeRelations: [],
                 },
               };
@@ -929,7 +965,9 @@
               newEdges.push(edge);
               processedRelations.add(relationKey);
               console.log(
-                `      ✅ 엣지 생성 (availableRelations: ${allRelations.length}개)`
+                `      ✅ 신규 엣지 생성 (relationships: ${
+                  allRelations.length || 1
+                }개)`
               );
             }
           }
@@ -1084,14 +1122,45 @@
               }
             }
 
-            if (
-              !isDuplicateEdge(
-                sourceNode.id,
-                newNode.id,
-                rel.relType,
-                rel.termRelId
-              )
-            ) {
+            // 🔥🔥🔥 동일한 source-target 쌍에 이미 엣지가 있는지 확인 (relationType 무관)
+            // 1. newEdges 배열에서 찾기
+            let existingEdge = newEdges.find(
+              (e) => e.source === sourceNode.id && e.target === newNode.id
+            );
+
+            // 2. edges.value에서도 찾기 (이미 생성된 엣지)
+            if (!existingEdge) {
+              existingEdge = edges.value.find(
+                (e) =>
+                  e.source === sourceNode.id &&
+                  e.target === newNode.id &&
+                  !e.data.isCompositeChild
+              );
+            }
+
+            if (existingEdge) {
+              // 🔥 기존 엣지에 관계 추가
+              if (!existingEdge.data.relationships) {
+                existingEdge.data.relationships = [];
+              }
+
+              // 중복 관계 체크
+              const isDuplicate = existingEdge.data.relationships.some(
+                (r) => r.termRelId === rel.termRelId
+              );
+
+              if (!isDuplicate) {
+                existingEdge.data.relationships.push(rel);
+                console.log(
+                  `      ✅ 기존 엣지에 관계 추가 (총 ${existingEdge.data.relationships.length}개)`
+                );
+              } else {
+                console.log(`      ⏭️ 이미 추가된 관계`);
+              }
+
+              processedRelations.add(relationKey);
+            } else {
+              // 🔥 새 엣지 생성
               const { sourceHandle, targetHandle } = selectOptimalHandles(
                 sourceNode,
                 newNode
@@ -1128,8 +1197,8 @@
                   createdAt: rel.regDate || new Date().toISOString(),
                   sourceNodeName: sourceNode.data.termName,
                   targetNodeName: newNode.data.termName,
-                  availableRelations:
-                    allRelations.length > 0 ? allRelations : undefined, // 🔥🔥🔥
+                  // 🔥🔥🔥 relationships 배열로 통일
+                  relationships: allRelations.length > 0 ? allRelations : [rel],
                   compositeRelations: [],
                 },
               };
@@ -1137,7 +1206,9 @@
               newEdges.push(edge);
               processedRelations.add(relationKey);
               console.log(
-                `      ✅ 엣지 생성 (availableRelations: ${allRelations.length}개)`
+                `      ✅ 신규 엣지 생성 (relationships: ${
+                  allRelations.length || 1
+                }개)`
               );
             }
           }
@@ -1243,16 +1314,68 @@
     }
   };
 
-  // 🔥 엣지 삭제 핸들러 추가
+  // 🔥 엣지 업데이트 핸들러 (relationships 배열 변경 시 Vue 반응성 트리거)
+  const handleUpdateEdge = (edge) => {
+    console.log('🔄 엣지 업데이트 요청:', edge.id);
+
+    const index = edges.value.findIndex((e) => e.id === edge.id);
+
+    if (index !== -1) {
+      // Vue 반응성 트리거 (배열 항목 교체)
+      edges.value[index] = { ...edges.value[index] };
+      console.log(
+        `✅ 엣지 업데이트 완료 (relationships: ${edge.data.relationships?.length}개)`
+      );
+
+      // 엣지 갱신
+      nextTick(() => {
+        refreshEdges();
+      });
+
+      // 사이드바 업데이트
+      if (selectedItem.value && selectedItem.value.type === 'node') {
+        const currentNode = selectedItem.value;
+        selectedItem.value = null;
+        nextTick(() => {
+          selectedItem.value = currentNode;
+        });
+      }
+    } else {
+      console.warn('⚠️ 업데이트할 엣지를 찾을 수 없습니다:', edge.id);
+    }
+  };
+
+  // 🔥 엣지 삭제 핸들러 (여러 관계 처리)
   const handleDeleteEdge = (edge) => {
     console.log('🗑️ 엣지 삭제 요청:', edge);
 
-    // edges 배열에서 해당 엣지 제거
+    const edgeToDelete = edges.value.find((e) => e.id === edge.id);
+
+    if (!edgeToDelete) {
+      console.warn('⚠️ 삭제할 엣지를 찾을 수 없습니다:', edge.id);
+      return;
+    }
+
+    // 🔥🔥🔥 여러 관계가 있는 경우 처리
+    const relationshipsCount = edgeToDelete.data?.relationships?.length || 1;
+
+    if (relationshipsCount > 1) {
+      // 여러 관계가 있으면 삭제 확인
+      const confirmMsg = `이 엣지에는 ${relationshipsCount}개의 관계가 있습니다.\n모든 관계를 삭제하시겠습니까?\n\n개별 관계를 삭제하려면 관계 목록 툴팁에서 선택해주세요.`;
+
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+    }
+
+    // 엣지 삭제
     const index = edges.value.findIndex((e) => e.id === edge.id);
 
     if (index !== -1) {
       edges.value.splice(index, 1);
-      console.log(`✅ 엣지 삭제 완료: ${edge.id}`);
+      console.log(
+        `✅ 엣지 삭제 완료: ${edge.id} (${relationshipsCount}개 관계 포함)`
+      );
 
       // 엣지 갱신
       nextTick(() => {
@@ -1261,13 +1384,21 @@
 
       // 선택 해제
       selectedItem.value = null;
-    } else {
-      console.warn('⚠️ 삭제할 엣지를 찾을 수 없습니다:', edge.id);
     }
   };
 
-  // 🔥 엣지 생성 헬퍼 함수
+  // 🔥 엣지 생성 헬퍼 함수 (relationships 배열 포함)
   const createEdge = (sourceNode, targetNode, relationData, color) => {
+    // 🔥 관계 데이터 객체
+    const relationshipObj = {
+      termRelId: relationData.termRelId,
+      parentTermId: sourceNode.data.termId,
+      passiveTermId: targetNode.data.termId,
+      relType: relationData.relType,
+      rel_expln: relationData.rel_expln || '',
+      regDate: relationData.regDate || new Date().toISOString(),
+    };
+
     return {
       id: `edge-${edgeIdCounter++}`,
       source: sourceNode.id,
@@ -1287,6 +1418,8 @@
         createdAt: relationData.regDate || new Date().toISOString(),
         sourceNodeName: sourceNode.data.termName,
         targetNodeName: targetNode.data.termName,
+        // 🔥🔥🔥 relationships 배열 추가
+        relationships: [relationshipObj],
       },
     };
   };
@@ -1312,6 +1445,20 @@
 
       return isSameConnection;
     });
+  };
+
+  // 🔥 관계 유형 라벨 매핑
+  const getRelationshipLabel = (type) => {
+    const typeMap = {
+      SIMILAR: '유사',
+      ASSOCIATION: '동등',
+      COMPOSITION: '소속',
+      ADDITION: '더하기',
+      SUBTRACTION: '빼기',
+      MULTIPLICATION: '곱하기',
+      DIVISION: '나누기',
+    };
+    return typeMap[type] || type;
   };
 
   // 🔥 모든 노드 간 관계 초기화 함수
@@ -3450,48 +3597,136 @@
         isCompositeChild: true,
       });
     } else {
-      // 🔥 일반 노드 간 관계 (기존 로직 유지)
-      const newEdge = {
-        id: `edge-${edgeIdCounter++}`,
-        source: pendingConnection.sourceNodeId,
-        target: pendingConnection.targetNodeId,
-        sourceHandle: pendingConnection.sourceHandle,
-        targetHandle: pendingConnection.targetHandle,
-        type: 'relationshipEdge',
-        animated: false,
-        style: {
-          stroke: edgeColor,
-          strokeWidth: newRelationship.isBidirectional ? 3 : 2.5,
-        },
-        data: {
-          relationshipId: response.data?.termRelId || Date.now(),
-          relationshipName: newRelationship.relationshipName?.trim() || '',
-          relationshipType: newRelationship.relationshipType,
-          description: newRelationship.description?.trim() || '',
-          isBidirectional: newRelationship.isBidirectional,
-          isAutoGenerated: false,
-          isCompositeChild: false,
-          createdAt: new Date().toISOString(),
-          sourceNodeName: pendingConnection.sourceNodeData?.termName,
-          targetNodeName: pendingConnection.targetNodeData?.termName,
-        },
+      // 🔥 일반 노드 간 관계
+
+      // 🔥🔥🔥 1단계: 동일한 노드 쌍(A→B)에 이미 엣지가 있는지 확인 (핸들 위치 무관)
+      const existingEdge = edges.value.find(
+        (edge) =>
+          edge.source === pendingConnection.sourceNodeId &&
+          edge.target === pendingConnection.targetNodeId &&
+          !edge.data.isCompositeChild // 복합구성 자식 엣지는 제외
+      );
+
+      // 🔥 새 관계 데이터 객체
+      const newRelationData = {
+        termRelId: response.data?.termRelId || Date.now(),
+        parentTermId: pendingConnection.sourceNodeData.termId,
+        passiveTermId: pendingConnection.targetNodeData.termId,
+        relType: newRelationship.relationshipType,
+        rel_expln: newRelationship.description?.trim() || '',
+        regDate: new Date().toISOString(),
       };
 
-      edges.value.push(newEdge);
+      if (existingEdge) {
+        // 🔥🔥🔥 2-A: 기존 엣지가 있으면 → 관계만 추가
+        console.log('✅ 기존 엣지 발견 - 관계 추가 모드:', {
+          edgeId: existingEdge.id,
+          source: pendingConnection.sourceNodeData?.termName,
+          target: pendingConnection.targetNodeData?.termName,
+          existingRelations: existingEdge.data.relationships?.length || 1,
+        });
 
-      console.log('새 일반 관계 생성:', {
-        edge: newEdge,
-        sourceHandle: pendingConnection.sourceHandle,
-        targetHandle: pendingConnection.targetHandle,
-        relationshipType: newRelationship.relationshipType,
-      });
+        // relationships 배열 초기화 (기존 엣지가 배열이 없으면 생성)
+        if (!existingEdge.data.relationships) {
+          existingEdge.data.relationships = [
+            {
+              termRelId: existingEdge.data.relationshipId,
+              parentTermId: sourceNode.data.termId,
+              passiveTermId: targetNode.data.termId,
+              relType: existingEdge.data.relationshipType,
+              rel_expln: existingEdge.data.description || '',
+              regDate: existingEdge.data.createdAt,
+            },
+          ];
+        }
 
-      emit('relationship-created', {
-        edge: newEdge,
-        sourceNode: pendingConnection.sourceNodeData,
-        targetNode: pendingConnection.targetNodeData,
-        relationshipData: newRelationship,
-      });
+        // 🔥 중복 관계 체크 (같은 relType이 이미 있는지)
+        const duplicateRelation = existingEdge.data.relationships.find(
+          (rel) => rel.relType === newRelationship.relationshipType
+        );
+
+        if (duplicateRelation) {
+          console.warn('⚠️ 동일한 관계 타입이 이미 존재합니다:', {
+            relType: newRelationship.relationshipType,
+          });
+
+          alert(
+            `${pendingConnection.sourceNodeData?.termName} → ${
+              pendingConnection.targetNodeData?.termName
+            } 간에 이미 동일한 관계(${getRelationshipLabel(
+              newRelationship.relationshipType
+            )})가 존재합니다.`
+          );
+
+          closeRelationshipPopup();
+          return;
+        }
+
+        // 🔥🔥🔥 새 관계를 배열에 추가
+        existingEdge.data.relationships.push(newRelationData);
+
+        console.log(
+          `✅ 관계 추가 완료 - 총 ${existingEdge.data.relationships.length}개 관계:`,
+          existingEdge.data.relationships.map((r) => r.relType)
+        );
+
+        // 🔥 엣지 강제 리렌더링 (Vue 반응성 트리거)
+        const edgeIndex = edges.value.findIndex(
+          (e) => e.id === existingEdge.id
+        );
+        if (edgeIndex !== -1) {
+          edges.value[edgeIndex] = { ...existingEdge };
+        }
+
+        emit('relationship-created', {
+          edge: existingEdge,
+          sourceNode: pendingConnection.sourceNodeData,
+          targetNode: pendingConnection.targetNodeData,
+          relationshipData: newRelationship,
+          isAddedToExisting: true,
+        });
+      } else {
+        // 🔥🔥🔥 2-B: 기존 엣지가 없으면 → 새 엣지 생성
+        console.log('✅ 신규 엣지 생성 모드');
+
+        const newEdge = {
+          id: `edge-${edgeIdCounter++}`,
+          source: pendingConnection.sourceNodeId,
+          target: pendingConnection.targetNodeId,
+          sourceHandle: pendingConnection.sourceHandle,
+          targetHandle: pendingConnection.targetHandle,
+          type: 'relationshipEdge',
+          animated: false,
+          style: {
+            stroke: edgeColor,
+            strokeWidth: newRelationship.isBidirectional ? 3 : 2.5,
+          },
+          data: {
+            relationshipId: response.data?.termRelId || Date.now(),
+            relationshipName: newRelationship.relationshipName?.trim() || '',
+            relationshipType: newRelationship.relationshipType,
+            description: newRelationship.description?.trim() || '',
+            isBidirectional: newRelationship.isBidirectional,
+            isAutoGenerated: false,
+            isCompositeChild: false,
+            createdAt: new Date().toISOString(),
+            sourceNodeName: pendingConnection.sourceNodeData?.termName,
+            targetNodeName: pendingConnection.targetNodeData?.termName,
+            // 🔥🔥🔥 relationships 배열 초기화
+            relationships: [newRelationData],
+          },
+        };
+
+        edges.value.push(newEdge);
+
+        emit('relationship-created', {
+          edge: newEdge,
+          sourceNode: pendingConnection.sourceNodeData,
+          targetNode: pendingConnection.targetNodeData,
+          relationshipData: newRelationship,
+          isAddedToExisting: false,
+        });
+      }
     }
 
     closeRelationshipPopup();
