@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('biz_trm_rel', { schema: 'bizmeta' })
+@Entity('biz_trm_rel', { schema: 'mflex' })
 export class BizTermRel {
   @PrimaryGeneratedColumn({ name: 'rel_id' })
   termRelId: number;

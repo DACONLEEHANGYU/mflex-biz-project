@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, BeforeInsert } from 'typeorm';
 
-@Entity('biz_trm', { schema: 'bizmeta' })
+@Entity('biz_trm', { schema: 'mflex' })
 export class BizTerm {
   @PrimaryGeneratedColumn({ name: 'trm_id' })
   termId: number;

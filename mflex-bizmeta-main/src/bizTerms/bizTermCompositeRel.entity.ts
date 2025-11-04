@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryColumn } from 'typeorm';
 
-@Entity({ name: 'biz_trm_composite_rel', schema: 'bizmeta' })
+@Entity({ name: 'biz_trm_composite_rel', schema: 'mflex' })
 export class BizTermCompositeRel {
   @PrimaryColumn({ name: 'trm_composite_rel_id', type: 'int' })
   termCompositerRelId: number; // 구성비즈니스용어ID (PK)

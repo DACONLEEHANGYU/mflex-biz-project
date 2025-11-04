@@ -60,201 +60,14 @@ export class BizTermService {
   /**
    * 전체 용어 조회 (페이징 포함, 관계 포함, 복합용어 구성 포함)
    */
-  async findAll(page: number = 1, limit: number = 50) {
-    // 1. 기본 용어 조회
-    const [terms, totalCount] = await this.bizTermRepository.findAndCount({
-      order: {
-        termId: 'ASC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    // 2. 조회된 용어들의 ID 추출
-    const termIds = terms.map((term) => term.termId);
-
-    // 3. termId가 parent_trm_id 또는 passive_trm_id인 관계 정보 조회
-    const parentRelations = await this.bizTermRelRepository.find({
-      where: {
-        parentTermId: In(termIds),
-      },
-    });
-
-    const passiveRelations = await this.bizTermRelRepository.find({
-      where: {
-        passiveTermId: In(termIds),
-      },
-    });
-
-    // 4. termId가 복합용어인 경우 구성용어(자식) 조회
-    const compositeChildren = await this.bizTermCompositeRepository.find({
-      where: {
-        compositeTermId: In(termIds),
-      },
-      order: {
-        sortOrder: 'ASC',
-      },
-    });
-
-    // 4-1. 복합구성용어 자식 간 관계 전체 조회
-    const allCompositeRelations = await this.getAllCompositeRelations();
-
-    // 4-2. compositeRelations에서 사용되는 compositeRelId 추출
-    const compositeRelIds = allCompositeRelations.map((rel) =>
-      Number(rel.compositeRelId),
-    );
-
-    // 4-3. compositeRelId에 해당하는 BizTermRel 조회
-    let compositeRelDetails: BizTermRel[] = [];
-    if (compositeRelIds.length > 0) {
-      compositeRelDetails = await this.bizTermRelRepository.find({
-        where: {
-          termRelId: In(compositeRelIds),
-        },
-      });
-    }
-
-    // 4-4. compositeRelId별 BizTermRel을 Map으로 구성
-    const compositeRelDetailsMap = new Map<number, BizTermRel>();
-    compositeRelDetails.forEach((rel) => {
-      compositeRelDetailsMap.set(Number(rel.termRelId), rel);
-    });
-
-    // 5. 구성용어의 상세 정보를 가져오기 위해 자식 용어 ID 추출
-    const childTermIds = compositeChildren.map((comp) =>
-      Number(comp.compositeTermChildId),
-    );
-    const childTermsMap = new Map();
-
-    if (childTermIds.length > 0) {
-      const childTerms = await this.bizTermRepository.find({
-        where: {
-          termId: In(childTermIds),
-        },
-      });
-
-      childTerms.forEach((term) => {
-        childTermsMap.set(term.termId, term);
-      });
-    }
-
-    // 6. 자식 용어들의 관계 정보 조회
-    const childParentRelations = await this.bizTermRelRepository.find({
-      where: {
-        parentTermId: In(childTermIds),
-      },
-    });
-
-    const childPassiveRelations = await this.bizTermRelRepository.find({
-      where: {
-        passiveTermId: In(childTermIds),
-      },
-    });
-
-    // 7. 자식 용어별 관계 정보를 Map으로 구성
-    const childRelationsMap = new Map();
-
-    childTermIds.forEach((childId) => {
-      const asParent = childParentRelations.filter(
-        (rel) => Number(rel.parentTermId) === Number(childId),
-      );
-      const asPassive = childPassiveRelations.filter(
-        (rel) => Number(rel.passiveTermId) === Number(childId),
-      );
-
-      childRelationsMap.set(childId, {
-        asParent,
-        asPassive,
-        relationCount: asParent.length + asPassive.length,
-      });
-    });
-
-    // 8. 용어별 관계 및 복합용어 구성 매핑
-    const items = terms.map((term) => {
-      // parent로 연결된 관계들 (termId가 parent_trm_id인 경우)
-      const asParent = parentRelations.filter(
-        (rel) => Number(rel.parentTermId) === Number(term.termId),
-      );
-
-      // passive로 연결된 관계들 (termId가 passive_trm_id인 경우)
-      const asPassive = passiveRelations.filter(
-        (rel) => Number(rel.passiveTermId) === Number(term.termId),
-      );
-
-      // 해당 compositeId의 자식 간 관계 필터링 및 BizTermRel 정보 추가
-      const compositeRelations = allCompositeRelations
-        .filter((rel) => Number(rel.compositeId) === Number(term.termId))
-        .map((rel) => ({
-          ...rel,
-          relationDetail:
-            compositeRelDetailsMap.get(Number(rel.compositeRelId)) || null,
-        }));
-
-      // 복합용어의 구성용어(자식) 정보
-      const compositeInfo = compositeChildren
-        .filter((comp) => Number(comp.compositeTermId) === Number(term.termId))
-        .map((comp) => {
-          const childTerm = childTermsMap.get(
-            Number(comp.compositeTermChildId),
-          );
-          const childRelations = childRelationsMap.get(
-            Number(comp.compositeTermChildId),
-          ) || {
-            asParent: [],
-            asPassive: [],
-            relationCount: 0,
-          };
-
-          return {
-            compositeId: comp.compositeId,
-            compositeTermId: comp.compositeTermId,
-            compositeTermChildId: comp.compositeTermChildId,
-            termRelId: comp.termRelId,
-            sortOrder: comp.sortOrder,
-            childTerm: childTerm
-              ? {
-                  ...childTerm,
-                  relations: {
-                    asParent: childRelations.asParent,
-                    asPassive: childRelations.asPassive,
-                  },
-                  relationCount: childRelations.relationCount,
-                }
-              : null,
-          };
-        });
-
-      return {
-        ...term,
-        relations: {
-          asParent: asParent,
-          asPassive: asPassive,
-        },
-        relationCount: asParent.length + asPassive.length,
-        compositeChildren: compositeInfo,
-        compositeRelations: compositeRelations, // BizTermRel 정보가 포함된 자식 간 관계
-        compositeRelationsCount: compositeRelations.length,
-        compositeChildrenCount: compositeInfo.length,
-      };
-    });
-
-    return {
-      items,
-      searchCount: items.length,
-      totalCount,
-      allCompositeRelations: allCompositeRelations, // 전체 복합구성용어 관계 데이터 추가
-    };
-  }
-
-  /**
-   * 전체 용어 조회 (관계 포함, 복합용어 구성 포함)
-   */
-  // async findAll() {
-  //   // 1. 기본 용어 조회 (페이징 제거 - 전체 조회)
+  // async findAll(page: number = 1, limit: number = 50) {
+  //   // 1. 기본 용어 조회
   //   const [terms, totalCount] = await this.bizTermRepository.findAndCount({
   //     order: {
   //       termId: 'ASC',
   //     },
+  //     skip: (page - 1) * limit,
+  //     take: limit,
   //   });
 
   //   // 2. 조회된 용어들의 ID 추출
@@ -343,10 +156,10 @@ export class BizTermService {
 
   //   childTermIds.forEach((childId) => {
   //     const asParent = childParentRelations.filter(
-  //       (rel) => String(rel.parentTermId) === String(childId),
+  //       (rel) => Number(rel.parentTermId) === Number(childId),
   //     );
   //     const asPassive = childPassiveRelations.filter(
-  //       (rel) => String(rel.passiveTermId) === String(childId),
+  //       (rel) => Number(rel.passiveTermId) === Number(childId),
   //     );
 
   //     childRelationsMap.set(childId, {
@@ -360,17 +173,17 @@ export class BizTermService {
   //   const items = terms.map((term) => {
   //     // parent로 연결된 관계들 (termId가 parent_trm_id인 경우)
   //     const asParent = parentRelations.filter(
-  //       (rel) => String(rel.parentTermId) === String(term.termId),
+  //       (rel) => Number(rel.parentTermId) === Number(term.termId),
   //     );
 
   //     // passive로 연결된 관계들 (termId가 passive_trm_id인 경우)
   //     const asPassive = passiveRelations.filter(
-  //       (rel) => String(rel.passiveTermId) === String(term.termId),
+  //       (rel) => Number(rel.passiveTermId) === Number(term.termId),
   //     );
 
   //     // 해당 compositeId의 자식 간 관계 필터링 및 BizTermRel 정보 추가
   //     const compositeRelations = allCompositeRelations
-  //       .filter((rel) => String(rel.compositeId) === String(term.termId))
+  //       .filter((rel) => Number(rel.compositeId) === Number(term.termId))
   //       .map((rel) => ({
   //         ...rel,
   //         relationDetail:
@@ -379,7 +192,7 @@ export class BizTermService {
 
   //     // 복합용어의 구성용어(자식) 정보
   //     const compositeInfo = compositeChildren
-  //       .filter((comp) => String(comp.compositeTermId) === String(term.termId))
+  //       .filter((comp) => Number(comp.compositeTermId) === Number(term.termId))
   //       .map((comp) => {
   //         const childTerm = childTermsMap.get(
   //           Number(comp.compositeTermChildId),
@@ -432,6 +245,193 @@ export class BizTermService {
   //     allCompositeRelations: allCompositeRelations, // 전체 복합구성용어 관계 데이터 추가
   //   };
   // }
+
+  /**
+   * 전체 용어 조회 (관계 포함, 복합용어 구성 포함)
+   */
+  async findAll() {
+    // 1. 기본 용어 조회 (페이징 제거 - 전체 조회)
+    const [terms, totalCount] = await this.bizTermRepository.findAndCount({
+      order: {
+        termId: 'ASC',
+      },
+    });
+
+    // 2. 조회된 용어들의 ID 추출
+    const termIds = terms.map((term) => term.termId);
+
+    // 3. termId가 parent_trm_id 또는 passive_trm_id인 관계 정보 조회
+    const parentRelations = await this.bizTermRelRepository.find({
+      where: {
+        parentTermId: In(termIds),
+      },
+    });
+
+    const passiveRelations = await this.bizTermRelRepository.find({
+      where: {
+        passiveTermId: In(termIds),
+      },
+    });
+
+    // 4. termId가 복합용어인 경우 구성용어(자식) 조회
+    const compositeChildren = await this.bizTermCompositeRepository.find({
+      where: {
+        compositeTermId: In(termIds),
+      },
+      order: {
+        sortOrder: 'ASC',
+      },
+    });
+
+    // 4-1. 복합구성용어 자식 간 관계 전체 조회
+    const allCompositeRelations = await this.getAllCompositeRelations();
+
+    // 4-2. compositeRelations에서 사용되는 compositeRelId 추출
+    const compositeRelIds = allCompositeRelations.map((rel) =>
+      Number(rel.compositeRelId),
+    );
+
+    // 4-3. compositeRelId에 해당하는 BizTermRel 조회
+    let compositeRelDetails: BizTermRel[] = [];
+    if (compositeRelIds.length > 0) {
+      compositeRelDetails = await this.bizTermRelRepository.find({
+        where: {
+          termRelId: In(compositeRelIds),
+        },
+      });
+    }
+
+    // 4-4. compositeRelId별 BizTermRel을 Map으로 구성
+    const compositeRelDetailsMap = new Map<number, BizTermRel>();
+    compositeRelDetails.forEach((rel) => {
+      compositeRelDetailsMap.set(Number(rel.termRelId), rel);
+    });
+
+    // 5. 구성용어의 상세 정보를 가져오기 위해 자식 용어 ID 추출
+    const childTermIds = compositeChildren.map((comp) =>
+      Number(comp.compositeTermChildId),
+    );
+    const childTermsMap = new Map();
+
+    if (childTermIds.length > 0) {
+      const childTerms = await this.bizTermRepository.find({
+        where: {
+          termId: In(childTermIds),
+        },
+      });
+
+      childTerms.forEach((term) => {
+        childTermsMap.set(term.termId, term);
+      });
+    }
+
+    // 6. 자식 용어들의 관계 정보 조회
+    const childParentRelations = await this.bizTermRelRepository.find({
+      where: {
+        parentTermId: In(childTermIds),
+      },
+    });
+
+    const childPassiveRelations = await this.bizTermRelRepository.find({
+      where: {
+        passiveTermId: In(childTermIds),
+      },
+    });
+
+    // 7. 자식 용어별 관계 정보를 Map으로 구성
+    const childRelationsMap = new Map();
+
+    childTermIds.forEach((childId) => {
+      const asParent = childParentRelations.filter(
+        (rel) => String(rel.parentTermId) === String(childId),
+      );
+      const asPassive = childPassiveRelations.filter(
+        (rel) => String(rel.passiveTermId) === String(childId),
+      );
+
+      childRelationsMap.set(childId, {
+        asParent,
+        asPassive,
+        relationCount: asParent.length + asPassive.length,
+      });
+    });
+
+    // 8. 용어별 관계 및 복합용어 구성 매핑
+    const items = terms.map((term) => {
+      // parent로 연결된 관계들 (termId가 parent_trm_id인 경우)
+      const asParent = parentRelations.filter(
+        (rel) => String(rel.parentTermId) === String(term.termId),
+      );
+
+      // passive로 연결된 관계들 (termId가 passive_trm_id인 경우)
+      const asPassive = passiveRelations.filter(
+        (rel) => String(rel.passiveTermId) === String(term.termId),
+      );
+
+      // 해당 compositeId의 자식 간 관계 필터링 및 BizTermRel 정보 추가
+      const compositeRelations = allCompositeRelations
+        .filter((rel) => String(rel.compositeId) === String(term.termId))
+        .map((rel) => ({
+          ...rel,
+          relationDetail:
+            compositeRelDetailsMap.get(Number(rel.compositeRelId)) || null,
+        }));
+
+      // 복합용어의 구성용어(자식) 정보
+      const compositeInfo = compositeChildren
+        .filter((comp) => String(comp.compositeTermId) === String(term.termId))
+        .map((comp) => {
+          const childTerm = childTermsMap.get(
+            Number(comp.compositeTermChildId),
+          );
+          const childRelations = childRelationsMap.get(
+            Number(comp.compositeTermChildId),
+          ) || {
+            asParent: [],
+            asPassive: [],
+            relationCount: 0,
+          };
+
+          return {
+            compositeId: comp.compositeId,
+            compositeTermId: comp.compositeTermId,
+            compositeTermChildId: comp.compositeTermChildId,
+            termRelId: comp.termRelId,
+            sortOrder: comp.sortOrder,
+            childTerm: childTerm
+              ? {
+                  ...childTerm,
+                  relations: {
+                    asParent: childRelations.asParent,
+                    asPassive: childRelations.asPassive,
+                  },
+                  relationCount: childRelations.relationCount,
+                }
+              : null,
+          };
+        });
+
+      return {
+        ...term,
+        relations: {
+          asParent: asParent,
+          asPassive: asPassive,
+        },
+        relationCount: asParent.length + asPassive.length,
+        compositeChildren: compositeInfo,
+        compositeRelations: compositeRelations, // BizTermRel 정보가 포함된 자식 간 관계
+        compositeRelationsCount: compositeRelations.length,
+        compositeChildrenCount: compositeInfo.length,
+      };
+    });
+
+    return {
+      items,
+      searchCount: items.length,
+      totalCount,
+      allCompositeRelations: allCompositeRelations, // 전체 복합구성용어 관계 데이터 추가
+    };
+  }
 
   /**
    * ID로 용어 조회 (관계 포함)
