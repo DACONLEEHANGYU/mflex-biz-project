@@ -940,16 +940,17 @@
 
   // 🔥 관계 유형별 색상
   const getRelationshipColor = (type) => {
-    const colorMap = {
-      COMPOSITION: '#10b981',
-      SIMILAR: '#8b5cf6',
-      ASSOCIATION: '#3b82f6',
-      ADDITION: '#f59e0b',
-      SUBTRACTION: '#ef4444',
-      MULTIPLICATION: '#ec4899',
-      DIVISION: '#6366f1',
-    };
-    return colorMap[type] || '#64748b';
+    // const colorMap = {
+    //   COMPOSITION: '#10b981',
+    //   SIMILAR: '#8b5cf6',
+    //   ASSOCIATION: '#3b82f6',
+    //   ADDITION: '#f59e0b',
+    //   SUBTRACTION: '#ef4444',
+    //   MULTIPLICATION: '#ec4899',
+    //   DIVISION: '#6366f1',
+    // };
+    // return colorMap[type] || '#64748b';
+    return '#64748b';
   };
 
   // 🔥 팝업 열기

@@ -1,9 +1,27 @@
 import { $vxHttp } from '@/api';
 
-// 비즈니스 용어 조회
-const getBizTerms = async () => {
+// 비즈니스 용어 조회 (페이징 및 검색 지원)
+const getBizTerms = async (limit = 100, offset = 0, search = '') => {
   try {
-    const response = await $vxHttp.get('http://localhost:3000/biz-terms'); // 실제 API 경로
+    // 쿼리 파라미터 구성
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+
+    const response = await $vxHttp.get(
+      `http://localhost:3000/biz-terms?${params.toString()}`,
+      '',
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        skipTimeoutAlert: true,
+        timeout: 0,
+      }
+    );
     console.log('getBizTerms API 응답:', response);
 
     // 🔥 axios는 response.data에 실제 데이터가 있습니다
@@ -154,8 +172,25 @@ const updateChildrenOrder = async (orderChangeData) => {
   }
 };
 
+/**
+ * 특정 용어와 1차 관계에 있는 모든 용어들의 상세 정보 조회
+ */
+const getBizTermWithRelated = async (termId) => {
+  try {
+    const response = await $vxHttp.get(
+      `http://localhost:3000/biz-terms/${termId}/related`
+    );
+    console.log('getBizTermWithRelated API 응답:', response);
+    return response.data;
+  } catch (error) {
+    console.error('getBizTermWithRelated API 에러:', error);
+    throw error;
+  }
+};
+
 export {
   getBizTerms, // 비즈니스 용어 조회,
+  getBizTermWithRelated, // 특정 용어와 관계된 용어들의 상세 정보 조회
   addBizTerm, // 비즈니스 용어 등록,
   deleteBizTerm, // 비즈니스 용어 삭제
   addBizTermRelation, // 비즈니스 용어 관계 등록

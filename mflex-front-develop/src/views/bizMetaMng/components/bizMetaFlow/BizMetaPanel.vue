@@ -435,10 +435,44 @@
   });
 
   // 🔥 Pane이 준비되었을 때 호출
-  const onPaneReady = () => {
+  const onPaneReady = async () => {
     console.log('🎨 [onPaneReady] VueFlow Pane 준비 완료');
 
+    // 🔥 컨테이너 크기 강제 업데이트 (재시도 로직 포함)
+    const waitForValidSize = async (retries = 5, delay = 100) => {
+      for (let i = 0; i < retries; i++) {
+        if (vueFlowRef.value && vueFlowRef.value.$el) {
+          const container = vueFlowRef.value.$el;
+          const rect = container.getBoundingClientRect();
+          const width = rect.width || container.clientWidth;
+          const height = rect.height || container.clientHeight;
+
+          console.log(`📐 [onPaneReady] 컨테이너 크기 확인 (시도 ${i + 1}/${retries}):`, {
+            width,
+            height
+          });
+
+          // 유효한 크기가 감지되면 성공
+          if (width > 0 && height > 0) {
+            console.log('✅ [onPaneReady] 유효한 컨테이너 크기 감지됨');
+            return true;
+          }
+        }
+
+        // 다음 시도 전 대기
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      console.warn('⚠️ [onPaneReady] 유효한 컨테이너 크기를 감지하지 못했습니다');
+      return false;
+    };
+
+    // 🔥 유효한 크기를 기다림
+    const hasValidSize = await waitForValidSize();
+
     // 🔥 Pane이 완전히 준비되면 노드 업데이트 및 fitView 실행
+    await nextTick();
+
     setTimeout(async () => {
       if (nodes.value.length > 0) {
         console.log('🔄 [onPaneReady] 노드 dimension 업데이트 시작');
@@ -452,7 +486,7 @@
         fitView({ padding: 0.2, duration: 200 });
         console.log('✅ [onPaneReady] fitView 완료');
       }
-    }, 100);
+    }, 150);
   };
 
   // 🔥 Flow 초기화 상태 관리
@@ -4264,8 +4298,27 @@
 
   // 🔥 ResizeObserver 인스턴스 저장
   let resizeObserver = null;
+  let resizeTimeout = null;
 
-  // 🔥 컴포넌트 마운트 시 초기화 (GridPlayGroundComp 방식 적용)
+  // 🔥 리사이즈 디바운스 함수
+  const debounceResize = (callback, delay = 200) => {
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(callback, delay);
+  };
+
+  // 🔥 컨테이너 크기 업데이트 및 뷰 재조정 함수
+  const updateViewportAndFit = () => {
+    if (nodes.value.length > 0 && isFlowReady.value) {
+      console.log('🔄 [updateViewportAndFit] 뷰 재조정 시작');
+      nodes.value.forEach((node) => {
+        updateNodeInternals(node.id);
+      });
+      fitView({ padding: 0.2, duration: 200 });
+      console.log('✅ [updateViewportAndFit] 뷰 재조정 완료');
+    }
+  };
+
+  // 🔥 컴포넌트 마운트 시 초기화
   onMounted(async () => {
     console.log('🌊 [onMounted] Vue Flow 초기화 시작');
 
@@ -4284,24 +4337,6 @@
           '✅ [onMounted] VueFlow 렌더링 완료, flowKey:',
           flowKey.value
         );
-
-        // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
-        setTimeout(() => {
-          console.log('🔄 [onMounted] window resize 이벤트 발생');
-          window.dispatchEvent(new Event('resize'));
-
-          // 🔥 resize 이벤트 후 추가로 fitView 강제 호출
-          setTimeout(() => {
-            if (nodes.value.length > 0) {
-              console.log('🔄 [onMounted] 강제 fitView 호출');
-              nodes.value.forEach((node) => {
-                updateNodeInternals(node.id);
-              });
-              fitView({ padding: 0.2, duration: 300 });
-              console.log('✅ [onMounted] 패널 완전 초기화 완료');
-            }
-          }, 200);
-        }, 300);
       });
     });
 
@@ -4310,37 +4345,55 @@
       if (vueFlowContainer.value) {
         resizeObserver = new ResizeObserver((entries) => {
           for (const entry of entries) {
-            console.log('📏 [ResizeObserver] 컨테이너 크기 변경 감지:', {
-              width: entry.contentRect.width,
-              height: entry.contentRect.height,
-            });
+            const { width, height } = entry.contentRect;
 
-            // 크기가 변경되면 잠시 후 fitView 호출
-            setTimeout(() => {
-              if (nodes.value.length > 0 && isFlowReady.value) {
-                nodes.value.forEach((node) => {
-                  updateNodeInternals(node.id);
-                });
-                fitView({ padding: 0.2, duration: 200 });
-                console.log('✅ [ResizeObserver] fitView로 뷰 재조정 완료');
-              }
-            }, 100);
+            // 유효한 크기인 경우만 처리
+            if (width > 0 && height > 0) {
+              console.log('📏 [ResizeObserver] 컨테이너 크기 변경 감지:', {
+                width,
+                height,
+              });
+
+              // 디바운스 적용하여 뷰 재조정
+              debounceResize(updateViewportAndFit);
+            }
           }
         });
 
         resizeObserver.observe(vueFlowContainer.value);
         console.log('✅ [onMounted] ResizeObserver 설정 완료');
       }
-    }, 700);
-  });
+    }, 300);
 
-  // 🔥 컴포넌트 언마운트 시 ResizeObserver 정리
-  onBeforeUnmount(() => {
-    if (resizeObserver) {
-      resizeObserver.disconnect();
-      resizeObserver = null;
-      console.log('🧹 [onBeforeUnmount] ResizeObserver 정리 완료');
-    }
+    // 🔥 window resize 이벤트 리스너 추가 (EtymologyAnalyzer 패턴)
+    const handleWindowResize = () => {
+      console.log('🪟 [window resize] 이벤트 감지');
+      debounceResize(updateViewportAndFit);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    console.log('✅ [onMounted] window resize 리스너 등록 완료');
+
+    // 🔥 cleanup function 저장
+    onBeforeUnmount(() => {
+      // window resize 리스너 제거
+      window.removeEventListener('resize', handleWindowResize);
+      console.log('🧹 [onBeforeUnmount] window resize 리스너 제거 완료');
+
+      // ResizeObserver 정리
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+        console.log('🧹 [onBeforeUnmount] ResizeObserver 정리 완료');
+      }
+
+      // timeout 정리
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = null;
+        console.log('🧹 [onBeforeUnmount] resizeTimeout 정리 완료');
+      }
+    });
   });
 
   onActivated(async () => {
@@ -4362,23 +4415,11 @@
           flowKey.value
         );
 
-        // 🔥 추가 지연 후 window resize 이벤트 발생 (keep-alive 캐싱 문제 해결)
+        // 🔥 window resize 이벤트 발생하여 ResizeObserver 트리거
         setTimeout(() => {
           console.log('🔄 [onActivated] window resize 이벤트 발생');
           window.dispatchEvent(new Event('resize'));
-
-          // 🔥 resize 이벤트 후 추가로 fitView 강제 호출
-          setTimeout(() => {
-            if (nodes.value.length > 0) {
-              console.log('🔄 [onActivated] 강제 fitView 호출');
-              nodes.value.forEach((node) => {
-                updateNodeInternals(node.id);
-              });
-              fitView({ padding: 0.2, duration: 300 });
-              console.log('✅ [onActivated] 패널 완전 초기화 완료');
-            }
-          }, 200);
-        }, 300);
+        }, 200);
       });
     });
   });
@@ -4726,6 +4767,9 @@
     position: relative;
     background: #f8fafc;
     overflow: hidden;
+    /* 🔥 flex 레이아웃 적용 (EtymologyAnalyzer 패턴) */
+    display: flex;
+    flex-direction: column;
   }
 
   // 🔥 컨트롤 버튼 (사이드바 상태에 따라 이동)
@@ -4784,9 +4828,11 @@
   }
 
   .vue-flow-container {
+    /* 🔥 flex 레이아웃 적용 (EtymologyAnalyzer 패턴) */
+    flex: 1;
     width: 100%;
-    height: 100%;
     position: relative;
+    min-height: 0; /* flex shrink을 위해 필요 */
 
     &.add-term-mode {
       cursor: crosshair;

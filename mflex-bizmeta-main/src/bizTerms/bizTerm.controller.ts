@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Put,
+  Query,
 } from '@nestjs/common';
 import { BizTermService } from './bizTerm.service';
 import { BizTerm } from './bizTerm.entity';
@@ -16,8 +17,23 @@ export class BizTermController {
   constructor(private readonly bizTermService: BizTermService) {}
 
   @Get()
-  async findAll() {
-    return await this.bizTermService.findAll();
+  async findAll(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('search') search?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    const parsedOffset = offset ? parseInt(offset, 10) : 0;
+    return await this.bizTermService.findAll(
+      parsedLimit,
+      parsedOffset,
+      search,
+    );
+  }
+
+  @Get(':id/related')
+  async findTermWithRelatedTerms(@Param('id') id: number) {
+    return await this.bizTermService.findTermWithRelatedTerms(id);
   }
 
   @Post()

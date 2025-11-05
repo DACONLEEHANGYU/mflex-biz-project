@@ -195,28 +195,31 @@
     </div>
 
     <!-- 페이징 -->
-    <div v-if="totalPages > 1" class="pagination-container">
+    <div v-if="!isLoading && totalPages > 0" class="pagination-container">
       <div class="pagination-info">
         <span
-          >총 {{ filteredTerms.length }}개 중 {{ startItem }}-{{ endItem }}개
-          표시</span
+          >전체 {{ totalCount }}개 | 페이지 {{ currentPage }} /
+          {{ totalPages }}</span
         >
       </div>
       <div class="pagination">
+        <!-- 이전 그룹 버튼 -->
         <button
-          class="page-button prev"
-          @click="goToPage(currentPage - 1)"
-          :disabled="currentPage === 1"
+          class="page-button prev-group"
+          @click="goToPrevGroup"
+          :disabled="!hasPrevGroup"
+          title="이전 5개 페이지"
         >
           <svg viewBox="0 0 20 20" fill="currentColor">
             <path
               fill-rule="evenodd"
-              d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+              d="M15.79 14.77a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L11.832 10l3.938 3.71a.75.75 0 01.02 1.06zm-6 0a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L5.832 10l3.938 3.71a.75.75 0 01.02 1.06z"
               clip-rule="evenodd"
             />
           </svg>
         </button>
 
+        <!-- 페이지 번호 버튼들 -->
         <button
           v-for="page in visiblePages"
           :key="page"
@@ -227,15 +230,17 @@
           {{ page }}
         </button>
 
+        <!-- 다음 그룹 버튼 -->
         <button
-          class="page-button next"
-          @click="goToPage(currentPage + 1)"
-          :disabled="currentPage === totalPages"
+          class="page-button next-group"
+          @click="goToNextGroup"
+          :disabled="!hasNextGroup"
+          title="다음 5개 페이지"
         >
           <svg viewBox="0 0 20 20" fill="currentColor">
             <path
               fill-rule="evenodd"
-              d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+              d="M4.21 5.23a.75.75 0 011.06-.02l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08L8.168 10 4.23 6.29a.75.75 0 01-.02-1.06zm6 0a.75.75 0 011.06-.02l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08L14.168 10l-3.938-3.71a.75.75 0 01-.02-1.06z"
               clip-rule="evenodd"
             />
           </svg>
@@ -424,6 +429,9 @@
               :min-zoom="0.3"
               :max-zoom="2.0"
               @pane-ready="onPaneReady"
+              @node-double-click="handleNodeDoubleClick"
+              @node-click="handleRelationNodeClick"
+              @edge-click="handleRelationEdgeClick"
             >
               <!-- 노드 타입 정의 -->
               <template #node-termNode="{ data, id }">
@@ -445,6 +453,37 @@
                 />
               </template>
             </VueFlow>
+
+            <!-- 🔥 노드/엣지 정보 팝업 -->
+            <div
+              v-if="infoPopup.visible"
+              class="info-popup"
+              :style="{
+                left: infoPopup.x + 'px',
+                top: infoPopup.y + 'px',
+              }"
+            >
+              <div class="info-popup-header">
+                <h4>{{ infoPopup.title }}</h4>
+                <button @click="closeInfoPopup" class="info-popup-close">
+                  <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div class="info-popup-body">
+                <div
+                  v-for="(value, key) in infoPopup.data"
+                  :key="key"
+                  class="info-popup-row"
+                >
+                  <span class="info-popup-label">{{ key }}:</span>
+                  <span class="info-popup-value">{{ value }}</span>
+                </div>
+              </div>
+            </div>
 
             <!-- 관계가 없는 경우 -->
             <div v-if="relationGraphNodes.length === 0" class="relation-empty">
@@ -508,6 +547,7 @@
 
   import {
     getBizTerms, // 비즈니스 용어 조회
+    getBizTermWithRelated, // 특정 용어와 관계된 용어들의 상세 정보 조회
     deleteBizTerm, // 비즈니스 용어 삭제
   } from '@/utils/mflexApi/bizMeta/bizMetaApi';
 
@@ -542,6 +582,13 @@
   const isDeleting = ref(false);
   const error = ref(null);
 
+  // 🔥 페이지 캐시 (검색어별로 관리)
+  const pageCache = ref(new Map()); // key: "search:page", value: { data, timestamp }
+
+  // 🔥 서버 사이드 페이징을 위한 상태
+  const totalCount = ref(0);
+  const pageSize = ref(50); // 한 페이지당 항목 수
+
   // 🔥 드래그 상태 관리
   const dragState = ref({
     isDragging: false,
@@ -570,6 +617,16 @@
   const relationModal = ref({
     visible: false,
     term: null,
+    relatedTerms: [], // 관계된 용어들의 상세 정보
+  });
+
+  // 🔥 정보 팝업 상태 관리
+  const infoPopup = ref({
+    visible: false,
+    title: '',
+    data: {},
+    x: 0,
+    y: 0,
   });
 
   // 🔥 툴팁 표시 함수 (수정)
@@ -828,20 +885,44 @@
     return tempData;
   };
 
-  const loadTerms = async () => {
+  const loadTerms = async (page = 1) => {
+    const search = searchTerm.value.trim();
+    const cacheKey = `${search}:${page}`;
+
+    // 🔥 캐시 확인
+    if (pageCache.value.has(cacheKey)) {
+      const cached = pageCache.value.get(cacheKey);
+      console.log(`캐시에서 페이지 ${page} 로드 (검색어: "${search}")`);
+      terms.value = cached.data;
+      totalCount.value = cached.totalCount;
+      return;
+    }
+
     isLoading.value = true;
     error.value = null;
 
     try {
-      const bizTerms = await getBizTerms();
+      const limit = pageSize.value;
+      const offset = (page - 1) * limit;
+
+      const bizTerms = await getBizTerms(limit, offset, search);
       console.log('API 응답:', bizTerms);
 
       const termData = bindingTermData(bizTerms);
 
-      // terms.value = generateDummyTerms();
+      // 🔥 캐시에 저장
+      pageCache.value.set(cacheKey, {
+        data: termData,
+        totalCount: bizTerms.totalCount,
+        timestamp: Date.now(),
+      });
 
-      terms.value = termData;
-      console.log('용어 목록 로딩 완료:', terms.value.length + '개');
+      terms.value = termData; // 페이지별로 데이터 교체
+      totalCount.value = bizTerms.totalCount;
+
+      console.log(
+        `페이지 ${page} 로딩 완료: ${termData.length}개 (전체: ${totalCount.value}개)`
+      );
     } catch (err) {
       error.value = '용어 목록을 불러오는데 실패했습니다.';
       console.error('용어 목록 로딩 실패:', err);
@@ -1001,24 +1082,11 @@
     });
   };
 
-  // 🔥 필터링 로직 수정
+  // 🔥 필터링 로직 수정 (클라이언트 사이드 필터링은 용어 타입만)
   const filteredTerms = computed(() => {
     let result = terms.value;
 
-    // 검색어 필터링
-    if (searchTerm.value.trim()) {
-      const query = searchTerm.value.toLowerCase().trim();
-      result = result.filter(
-        (term) =>
-          term.termName.toLowerCase().includes(query) ||
-          (term.description &&
-            term.description.toLowerCase().includes(query)) ||
-          (term.domain && term.domain.toLowerCase().includes(query)) ||
-          (term.registeredBy && term.registeredBy.toLowerCase().includes(query))
-      );
-    }
-
-    // 용어 타입 필터링
+    // 용어 타입 필터링 (클라이언트 사이드)
     if (termTypeFilter.value !== 'ALL') {
       result = result.filter((term) => term.termType === termTypeFilter.value);
     }
@@ -1026,61 +1094,72 @@
     return result;
   });
 
-  const totalPages = computed(() =>
-    Math.ceil(filteredTerms.value.length / itemsPerPage.value)
-  );
-
+  // 🔥 서버 페이징 관련 computed
   const paginatedTerms = computed(() => {
-    const start = (currentPage.value - 1) * itemsPerPage.value;
-    const end = start + itemsPerPage.value;
-    return filteredTerms.value.slice(start, end);
+    // 서버에서 이미 페이징된 데이터를 받아오므로 filteredTerms를 그대로 반환
+    return filteredTerms.value;
   });
 
-  const startItem = computed(() => {
-    return Math.min(
-      (currentPage.value - 1) * itemsPerPage.value + 1,
-      filteredTerms.value.length
-    );
+  const totalPages = computed(() => {
+    // 전체 페이지 수 = 전체 항목 수 / 한 페이지당 항목 수
+    return Math.ceil(totalCount.value / pageSize.value);
   });
 
-  const endItem = computed(() => {
-    return Math.min(
-      currentPage.value * itemsPerPage.value,
-      filteredTerms.value.length
-    );
-  });
-
+  // 🔥 현재 표시할 페이지 버튼들 (1~5개)
   const visiblePages = computed(() => {
     const total = totalPages.value;
     const current = currentPage.value;
     const maxVisible = 5;
 
-    if (total <= maxVisible) {
-      return Array.from({ length: total }, (_, i) => i + 1);
-    }
+    if (total === 0) return [];
 
-    let start = Math.max(1, current - Math.floor(maxVisible / 2));
-    let end = Math.min(total, start + maxVisible - 1);
+    // 현재 페이지 그룹의 시작 페이지 계산
+    const startPage = Math.floor((current - 1) / maxVisible) * maxVisible + 1;
+    const endPage = Math.min(startPage + maxVisible - 1, total);
 
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, i) => startPage + i
+    );
+  });
 
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  // 🔥 이전/다음 페이지 그룹 존재 여부
+  const hasPrevGroup = computed(() => {
+    return visiblePages.value.length > 0 && visiblePages.value[0] > 1;
+  });
+
+  const hasNextGroup = computed(() => {
+    return (
+      visiblePages.value.length > 0 &&
+      visiblePages.value[visiblePages.value.length - 1] < totalPages.value
+    );
   });
 
   // 🔥 이벤트 핸들러
+  let searchTimeout = null;
+
   const handleSearch = () => {
-    currentPage.value = 1;
+    // 디바운스 처리 (300ms)
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(() => {
+      performSearch();
+    }, 300);
   };
 
   const performSearch = () => {
     console.log('검색 실행:', searchTerm.value);
+    pageCache.value.clear(); // 🔥 검색 시 캐시 초기화
+    currentPage.value = 1;
+    loadTerms(1); // 검색 시 1페이지로 이동
   };
 
   const clearSearch = () => {
     searchTerm.value = '';
+    pageCache.value.clear(); // 🔥 검색 초기화 시 캐시 초기화
     currentPage.value = 1;
+    loadTerms(1); // 검색 초기화 시 1페이지로 이동
   };
 
   const selectTerm = (term) => {
@@ -1111,21 +1190,23 @@
       isDeleting.value = true;
       await deleteTermById(termId);
 
+      // 🔥 용어 삭제 후 캐시 초기화
+      pageCache.value.clear();
+
       // 🔥 BizMetaPanel에 용어 삭제 이벤트 전달
       emit('term-deleted', termId);
       console.log('✅ term-deleted 이벤트 발생:', termId);
 
-      await loadTerms();
+      await loadTerms(currentPage.value);
 
       if (selectedTermId.value === termId) {
         selectedTermId.value = null;
       }
 
-      const maxPage = Math.ceil(
-        filteredTerms.value.length / itemsPerPage.value
-      );
-      if (currentPage.value > maxPage && maxPage > 0) {
-        currentPage.value = maxPage;
+      // 현재 페이지가 전체 페이지 수를 초과하면 마지막 페이지로 이동
+      if (currentPage.value > totalPages.value && totalPages.value > 0) {
+        currentPage.value = totalPages.value;
+        await loadTerms(currentPage.value);
       }
     } catch (err) {
       alert(err.message);
@@ -1134,41 +1215,139 @@
     }
   };
 
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages.value) {
+  // 🔥 페이지 이동 함수들
+  const goToPage = async (page) => {
+    if (page >= 1 && page <= totalPages.value && page !== currentPage.value) {
       currentPage.value = page;
+      await loadTerms(page);
+    }
+  };
+
+  const goToPrevGroup = async () => {
+    if (hasPrevGroup.value) {
+      const newPage = visiblePages.value[0] - 1;
+      await goToPage(newPage);
+    }
+  };
+
+  const goToNextGroup = async () => {
+    if (hasNextGroup.value) {
+      const newPage = visiblePages.value[visiblePages.value.length - 1] + 1;
+      await goToPage(newPage);
     }
   };
 
   // 관계 조회 모달 표시 함수 수정
   const showTermRelations = async (term) => {
     console.log('관계 조회:', term);
-    relationModal.value = {
-      visible: true,
-      term: { ...term },
-    };
 
-    // DOM 업데이트 후 fitView 실행
-    await nextTick();
-    await nextTick(); // 두 번 호출하여 VueFlow가 완전히 렌더링되도록 함
+    try {
+      // 🔥 새 API를 호출하여 관계된 용어들의 상세 정보 조회
+      const response = await getBizTermWithRelated(term.termId);
+      console.log('관계 조회 API 응답:', response);
 
-    if (vueFlowRef.value) {
-      // fitView 옵션으로 중앙 정렬 및 패딩 설정
-      vueFlowRef.value.fitView({
-        padding: 0.2, // 화면 가장자리에 20% 여백
-        includeHiddenNodes: false,
-        minZoom: 0.5,
-        maxZoom: 1.5,
-        duration: 300, // 애니메이션 지속 시간 (ms)
-      });
+      relationModal.value = {
+        visible: true,
+        term: response.term, // 서버에서 받은 상세 정보
+        relatedTerms: response.relatedTerms || [], // 관계된 용어들의 상세 정보
+      };
+
+      // DOM 업데이트 후 fitView 실행
+      await nextTick();
+      await nextTick(); // 두 번 호출하여 VueFlow가 완전히 렌더링되도록 함
+
+      if (vueFlowRef.value) {
+        // fitView 옵션으로 중앙 정렬 및 패딩 설정
+        vueFlowRef.value.fitView({
+          padding: 0.2, // 화면 가장자리에 20% 여백
+          includeHiddenNodes: false,
+          minZoom: 0.5,
+          maxZoom: 1.5,
+          duration: 300, // 애니메이션 지속 시간 (ms)
+        });
+      }
+    } catch (error) {
+      console.error('관계 조회 실패:', error);
+      alert('관계 조회에 실패했습니다.');
     }
+  };
+
+  // 🔥 노드 더블클릭 핸들러 - 해당 노드로 진입
+  const handleNodeDoubleClick = async (event) => {
+    console.log('노드 더블클릭:', event);
+    const nodeId = event.node.id;
+    const termId = event.node.data.termId;
+
+    if (!termId) {
+      console.warn('termId가 없습니다.');
+      return;
+    }
+
+    // 해당 노드의 관계도를 새로 로드
+    await showTermRelations({ termId });
+  };
+
+  // 🔥 관계 모달 내 노드 클릭 핸들러
+  const handleRelationNodeClick = (event) => {
+    const node = event.node;
+    const data = node.data;
+
+    // 팝업 위치 계산 (클릭 위치 기준)
+    const rect = event.event.target.getBoundingClientRect();
+    const modalRect = document.querySelector('.relation-modal-flow')?.getBoundingClientRect();
+
+    infoPopup.value = {
+      visible: true,
+      title: '용어 정보',
+      data: {
+        '용어명': data.termName || '-',
+        '용어 설명': data.termExplain || '-',
+        '용어 타입': data.termType || '-',
+        '담당자': data.owner || '-',
+      },
+      x: modalRect ? rect.left - modalRect.left + 20 : event.event.clientX,
+      y: modalRect ? rect.top - modalRect.top : event.event.clientY,
+    };
+  };
+
+  // 🔥 관계 모달 내 엣지 클릭 핸들러
+  const handleRelationEdgeClick = (event) => {
+    const edge = event.edge;
+    const data = edge.data;
+
+    // 팝업 위치 계산
+    const modalRect = document.querySelector('.relation-modal-flow')?.getBoundingClientRect();
+
+    infoPopup.value = {
+      visible: true,
+      title: '관계 정보',
+      data: {
+        '관계 유형': data.relationshipType || '-',
+        '설명': data.description || '-',
+      },
+      x: modalRect ? event.event.clientX - modalRect.left : event.event.clientX,
+      y: modalRect ? event.event.clientY - modalRect.top : event.event.clientY,
+    };
+  };
+
+  // 🔥 정보 팝업 닫기
+  const closeInfoPopup = () => {
+    infoPopup.value = {
+      visible: false,
+      title: '',
+      data: {},
+      x: 0,
+      y: 0,
+    };
   };
 
   const closeRelationModal = () => {
     relationModal.value = {
       visible: false,
       term: null,
+      relatedTerms: [],
     };
+    closeInfoPopup(); // 정보 팝업도 함께 닫기
   };
 
   // 🔥 유틸리티 함수
@@ -1199,9 +1378,9 @@
     return classMap[termType] || 'general';
   };
 
-  // 🔥 용어 ID로 용어 정보 찾기
-  const findTermById = (termId) => {
-    return terms.value.find((t) => t.termId === termId);
+  // 🔥 용어 ID로 용어 정보 찾기 (relatedTerms에서)
+  const findTermByIdInRelated = (termId) => {
+    return relationModal.value.relatedTerms.find((t) => t.termId === termId);
   };
 
   const relationGraphNodes = computed(() => {
@@ -1222,6 +1401,7 @@
         termExplain: term.termExplain,
         termType: term.termType,
         owner: term.owner,
+        isCenter: true, // 중앙 노드 표시
       },
     };
     nodes.push(centerNode);
@@ -1233,91 +1413,97 @@
     // 복합구성용어 자식들 추가 (아래쪽)
     if (term.compositeChildren && term.compositeChildren.length > 0) {
       term.compositeChildren.forEach((child, index) => {
+        if (!child.childTerm) return; // childTerm이 없으면 스킵
+
         const x =
           index * horizontalSpacing -
           ((term.compositeChildren.length - 1) * horizontalSpacing) / 2;
         const y = verticalSpacing;
 
         const childNode = {
-          id: `term-${child.termId}`,
+          id: `term-${child.childTerm.termId}`,
           type: 'termNode',
           position: { x, y },
           data: {
-            termId: child.termId,
-            termName: child.termName,
-            termExplain: child.termExplain,
-            termType: child.termType,
-            owner: child.owner,
+            termId: child.childTerm.termId,
+            termName: child.childTerm.termName,
+            termExplain: child.childTerm.termExplain,
+            termType: child.childTerm.termType,
+            owner: child.childTerm.owner,
           },
         };
         nodes.push(childNode);
-        nodeMap.set(child.termId, childNode);
+        nodeMap.set(child.childTerm.termId, childNode);
       });
     }
 
     // asParent 관계 노드들 추가 (오른쪽)
     if (term.relations?.asParent && term.relations.asParent.length > 0) {
-      const uniquePassiveTermIds = [
-        ...new Set(term.relations.asParent.map((rel) => rel.passiveTermId)),
-      ];
+      const uniqueRelations = new Map();
 
-      uniquePassiveTermIds.forEach((passiveTermId, index) => {
-        if (nodeMap.has(passiveTermId)) return;
+      term.relations.asParent.forEach((rel) => {
+        if (!uniqueRelations.has(rel.passiveTermId) && rel.passiveTermDetail) {
+          uniqueRelations.set(rel.passiveTermId, rel.passiveTermDetail);
+        }
+      });
+
+      Array.from(uniqueRelations.values()).forEach((passiveTerm, index) => {
+        if (nodeMap.has(passiveTerm.termId)) return;
 
         const x = horizontalSpacing;
         const y =
           index * verticalSpacing -
-          ((uniquePassiveTermIds.length - 1) * verticalSpacing) / 2;
-
-        const foundTerm = findTermById(passiveTermId);
+          ((uniqueRelations.size - 1) * verticalSpacing) / 2;
 
         const relNode = {
-          id: `term-${passiveTermId}`,
+          id: `term-${passiveTerm.termId}`,
           type: 'termNode',
           position: { x, y },
           data: {
-            termId: passiveTermId,
-            termName: foundTerm ? foundTerm.termName : `용어 ${passiveTermId}`,
-            termExplain: foundTerm ? foundTerm.termExplain : '',
-            termType: foundTerm ? foundTerm.termType : 'GENERAL',
-            owner: foundTerm ? foundTerm.owner : '',
+            termId: passiveTerm.termId,
+            termName: passiveTerm.termName || `용어 ${passiveTerm.termId}`,
+            termExplain: passiveTerm.termExplain || '',
+            termType: passiveTerm.termType || 'GENERAL',
+            owner: passiveTerm.owner || '',
           },
         };
         nodes.push(relNode);
-        nodeMap.set(passiveTermId, relNode);
+        nodeMap.set(passiveTerm.termId, relNode);
       });
     }
 
     // asPassive 관계 노드들 추가 (왼쪽)
     if (term.relations?.asPassive && term.relations.asPassive.length > 0) {
-      const uniqueParentTermIds = [
-        ...new Set(term.relations.asPassive.map((rel) => rel.parentTermId)),
-      ];
+      const uniqueRelations = new Map();
 
-      uniqueParentTermIds.forEach((parentTermId, index) => {
-        if (nodeMap.has(parentTermId)) return;
+      term.relations.asPassive.forEach((rel) => {
+        if (!uniqueRelations.has(rel.parentTermId) && rel.parentTermDetail) {
+          uniqueRelations.set(rel.parentTermId, rel.parentTermDetail);
+        }
+      });
+
+      Array.from(uniqueRelations.values()).forEach((parentTerm, index) => {
+        if (nodeMap.has(parentTerm.termId)) return;
 
         const x = -horizontalSpacing;
         const y =
           index * verticalSpacing -
-          ((uniqueParentTermIds.length - 1) * verticalSpacing) / 2;
-
-        const foundTerm = findTermById(parentTermId);
+          ((uniqueRelations.size - 1) * verticalSpacing) / 2;
 
         const relNode = {
-          id: `term-${parentTermId}`,
+          id: `term-${parentTerm.termId}`,
           type: 'termNode',
           position: { x, y },
           data: {
-            termId: parentTermId,
-            termName: foundTerm ? foundTerm.termName : `용어 ${parentTermId}`,
-            termExplain: foundTerm ? foundTerm.termExplain : '',
-            termType: foundTerm ? foundTerm.termType : 'GENERAL',
-            owner: foundTerm ? foundTerm.owner : '',
+            termId: parentTerm.termId,
+            termName: parentTerm.termName || `용어 ${parentTerm.termId}`,
+            termExplain: parentTerm.termExplain || '',
+            termType: parentTerm.termType || 'GENERAL',
+            owner: parentTerm.owner || '',
           },
         };
         nodes.push(relNode);
-        nodeMap.set(parentTermId, relNode);
+        nodeMap.set(parentTerm.termId, relNode);
       });
     }
 
@@ -1334,13 +1520,15 @@
     // 복합구성용어 자식 엣지
     if (term.compositeChildren && term.compositeChildren.length > 0) {
       term.compositeChildren.forEach((child) => {
+        if (!child.childTerm) return; // childTerm이 없으면 스킵
+
         edges.push({
-          id: `edge-composite-${term.termId}-${child.termId}`,
+          id: `edge-composite-${term.termId}-${child.childTerm.termId}`,
           source: `term-${term.termId}`,
-          target: `term-${child.termId}`,
+          target: `term-${child.childTerm.termId}`,
           type: 'relationshipEdge',
           sourceHandle: `term-${term.termId}-bottom-source`,
-          targetHandle: `term-${child.termId}-top-target`,
+          targetHandle: `term-${child.childTerm.termId}-top-target`,
           data: {
             relationshipType: 'COMPOSITION',
             description: '복합구성용어 관계',
@@ -1412,26 +1600,20 @@
 
   watch(isUpdate, (newVal) => {
     if (newVal) {
-      loadTerms();
+      loadTerms(currentPage.value);
       setIsUpdate(false);
     }
   });
 
-  // 🔥 반응형 데이터 감시
-  watch(searchTerm, () => {
-    currentPage.value = 1;
-  });
-
-  watch(filteredTerms, (newTerms) => {
-    const maxPage = Math.ceil(newTerms.length / itemsPerPage.value);
-    if (currentPage.value > maxPage && maxPage > 0) {
-      currentPage.value = maxPage;
-    }
+  // 🔥 반응형 데이터 감시 - 용어 타입 필터 변경 시 다시 로드
+  watch(termTypeFilter, () => {
+    // 용어 타입 필터는 클라이언트 사이드 필터링이므로 서버 요청 불필요
+    // 필터 변경 시 페이지는 유지
   });
 
   // 🔥 컴포넌트 마운트 시 데이터 로딩
   onMounted(() => {
-    loadTerms();
+    loadTerms(1);
   });
 </script>
 
@@ -1974,18 +2156,18 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
   }
 
   .page-button {
-    min-width: 28px;
-    height: 28px;
+    min-width: 32px;
+    height: 32px;
     border: 1px solid #d1d5db;
     background: white;
     color: #374151;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
@@ -1993,30 +2175,48 @@
     justify-content: center;
 
     svg {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
     }
 
     &:hover:not(:disabled) {
       background: #f9fafb;
       border-color: #9ca3af;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     &.active {
-      background: #3b82f6;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
       border-color: #3b82f6;
       color: white;
+      font-weight: 600;
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
     }
 
     &:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
       background: #f9fafb;
+
+      &:hover {
+        transform: none;
+        box-shadow: none;
+      }
     }
 
-    &.prev,
-    &.next {
-      padding: 0 5px;
+    &.prev-group,
+    &.next-group {
+      padding: 0 8px;
+      background: #f3f4f6;
+
+      &:hover:not(:disabled) {
+        background: #e5e7eb;
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
     }
   }
 
@@ -2577,6 +2777,85 @@
       margin: 0;
       font-size: 14px;
       font-weight: 500;
+    }
+  }
+
+  // 🔥 정보 팝업 스타일
+  .info-popup {
+    position: absolute;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    max-width: 400px;
+    z-index: 1000;
+    overflow: hidden;
+
+    .info-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+
+      h4 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .info-popup-close {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        svg {
+          width: 16px;
+          height: 16px;
+        }
+      }
+    }
+
+    .info-popup-body {
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+
+      .info-popup-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        font-size: 13px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .info-popup-label {
+          font-weight: 600;
+          color: #475569;
+          min-width: 80px;
+          flex-shrink: 0;
+        }
+
+        .info-popup-value {
+          color: #1e293b;
+          word-break: break-word;
+        }
+      }
     }
   }
 </style>

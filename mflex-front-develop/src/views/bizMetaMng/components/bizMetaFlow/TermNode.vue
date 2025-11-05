@@ -10,6 +10,7 @@
       'composite-parent':
         data.termType === 'COMPOSITE' && data.compositeChildrenCount > 0,
       'composite-child': data.isCompositeChild,
+      'center-node': data.isCenter,
     }"
     :data-parent="data.parentNode || null"
     :data-order="data.order || null"
@@ -454,6 +455,20 @@
           border-color: #7c3aed;
           box-shadow: 0 12px 32px rgba(139, 92, 246, 0.25);
         }
+      }
+    }
+
+    // 🔥 중앙 선택 노드 스타일 (관계 모달에서 선택된 용어)
+    &.center-node {
+      border: 3px solid #f59e0b;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2),
+                  0 8px 25px rgba(245, 158, 11, 0.3);
+
+      &:hover {
+        border-color: #d97706;
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3),
+                    0 12px 32px rgba(245, 158, 11, 0.4);
       }
     }
 
