@@ -24,9 +24,14 @@ export class BizTermController {
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 100;
     const parsedOffset = offset ? parseInt(offset, 10) : 0;
+
+    // NaN 체크 및 기본값 설정
+    const safeLimit = isNaN(parsedLimit) ? 100 : parsedLimit;
+    const safeOffset = isNaN(parsedOffset) ? 0 : parsedOffset;
+
     return await this.bizTermService.findAll(
-      parsedLimit,
-      parsedOffset,
+      safeLimit,
+      safeOffset,
       search,
     );
   }
