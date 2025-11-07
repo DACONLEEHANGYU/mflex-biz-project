@@ -10,18 +10,48 @@
         <div class="content-row">
           <section class="row-wrap">
             <div class="bg-box">
-              <AppTab :tabList="tabList" v-model="activeTab" mode="if">
-              </AppTab>
-              <div class="tab-comtent__row">
-                <keep-alive exclude="Tab1View,Tab2View">
-                  <component :is="currentTab" />
-                </keep-alive>
+              <div class="non-tab__comtent">
+                <div class="tab-inner pb0">
+                  <DragCol
+                    width="100%"
+                    height="100%"
+                    :leftPercent="37"
+                    :sliderWidth="10"
+                  >
+                    <template #left>
+                      <!-- 컬럼명 Comp -->
+                      <DbConnectionListComp />
+                    </template>
+
+                    <template #right>
+                      <div class="full-contents pl10">
+                        <AppTab
+                          :tabList="tabList"
+                          v-model="activeTab"
+                          mode="if"
+                        />
+                        <div class="tab-comtent__row">
+                          <keep-alive exclude="Tab1View,Tab2View">
+                            <component :is="currentTab" />
+                          </keep-alive>
+                        </div>
+                      </div>
+                    </template>
+                  </DragCol>
+                </div>
+                <!-- .tab-inner -->
               </div>
+              <!-- .non-tab__comtent -->
             </div>
+            <!-- .bg-box -->
           </section>
+          <!-- .row-wrap -->
         </div>
+        <!-- .content-row -->
       </div>
+      <!-- .content-area -->
     </div>
+    <!-- .content-box -->
 
     <!-- 데이터베이스 연결정보 알림 팝업 -->
     <AppWindow
@@ -51,6 +81,10 @@
     nextTick,
     computed,
   } from 'vue';
+
+  import { DragCol } from 'vue-resizer';
+
+  import DbConnectionListComp from '@/views/dataMng/components/schemaCollection/tab1/DbConnectionListComp.vue';
 
   import { useSwipperStore } from '@/stores/swipper';
   import { useSchemaCollectionStore } from '@/stores/schemaCollection';

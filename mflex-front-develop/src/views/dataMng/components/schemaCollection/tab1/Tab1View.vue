@@ -1,38 +1,34 @@
 <template>
   <div class="tab-inner pb0">
-    <DragCol width="100%" height="100%" :leftPercent="28.5" :sliderWidth="10">
-      <template #left>
-        <!-- DB 연결정보 목록 -->
-        <DbConnectionListComp @no-data="handleNoData" />
-      </template>
-      <template #right>
-        <button
-          class="btn-s blue mb10 mt5"
-          @click="onCollectionConfrim"
-          :disabled="!dbConnectionTestState || regState != 0"
-          title="온라인 스키마 수집"
-        >
-          온라인 스키마 수집
-        </button>
-        <button
-          class="btn-s dark-blue mb10 mt5"
-          @click="onOpenOfflineSchemaView"
-          :disabled="regState != 0"
-          title="오프라인 스키마 수집"
-        >
-          오프라인 스키마 수집
-        </button>
+    <!-- DB 연결정보 목록 -->
+    <!-- <DbConnectionListComp @no-data="handleNoData" /> -->
 
-        <div class="full-contents pl10 details-wrap">
-          <!-- DB 상세정보 -->
-          <div class="db-connection-details">
-            <DbConnectionDetailsComp />
-          </div>
-          <!-- DB 스키마 연결 -->
-          <DbSchemaSelectComp />
-        </div>
-      </template>
-    </DragCol>
+    <button
+      class="btn-s blue mb10 mt5"
+      @click="onCollectionConfrim"
+      :disabled="!dbConnectionTestState || regState != 0"
+      title="온라인 스키마 수집"
+    >
+      온라인 스키마 수집
+    </button>
+    <button
+      class="btn-s dark-blue mb10 mt5"
+      @click="onOpenOfflineSchemaView"
+      :disabled="regState != 0"
+      title="오프라인 스키마 수집"
+    >
+      오프라인 스키마 수집
+    </button>
+
+    <div class="full-contents pl10 details-wrap">
+      <!-- DB 상세정보 -->
+      <div class="db-connection-details">
+        <DbConnectionDetailsComp />
+      </div>
+      <!-- DB 스키마 연결 -->
+      <DbSchemaSelectComp />
+    </div>
+
     <!-- 저장 알림창 -->
     <AppDialog
       v-model:view="saveConfirmState.view"
