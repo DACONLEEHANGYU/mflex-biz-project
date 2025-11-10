@@ -254,15 +254,25 @@ export class BizTermService {
    */
   async findAll(limit: number = 100, offset: number = 0, search?: string) {
     // 1. 기본 용어 조회 (페이징 적용)
-    const queryBuilder = this.bizTermRepository
-      .createQueryBuilder('biz_trm')
-      .orderBy('biz_trm.trm_id', 'ASC');
+    const queryBuilder = this.bizTermRepository.createQueryBuilder('biz_trm');
 
     // 검색어가 있으면 검색 조건 추가
     if (search && search.trim()) {
       queryBuilder.where('biz_trm.trm_nm LIKE :search', {
         search: `%${search.trim()}%`,
       });
+
+      // 정확히 일치하는 항목을 먼저 정렬하고, 그 다음 부분 일치하는 항목 정렬
+      queryBuilder
+        .orderBy(
+          `CASE WHEN biz_trm.trm_nm = :exactSearch THEN 1 ELSE 2 END`,
+          'ASC',
+        )
+        .addOrderBy('biz_trm.trm_id', 'ASC')
+        .setParameter('exactSearch', search.trim());
+    } else {
+      // 검색어가 없으면 기본 정렬
+      queryBuilder.orderBy('biz_trm.trm_id', 'ASC');
     }
 
     // 페이징 적용
