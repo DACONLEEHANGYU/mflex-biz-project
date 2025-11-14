@@ -31,6 +31,24 @@
         </svg>
         비우기
       </button>
+
+      <button
+        class="control-button auto-layout"
+        @click="autoLayoutNodes"
+        title="노드 자동 정렬"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path
+            d="M13.024 9.25c.47 0 .827-.433.637-.863a4 4 0 00-4.094-2.364c-.468.05-.665.576-.43.984l1.08 1.868a.75.75 0 00.649.375h2.158zM7.84 7.758c-.236-.408-.79-.5-1.068-.12A3.982 3.982 0 006 10c0 .884.287 1.7.772 2.363.278.38.832.287 1.068-.12l1.078-1.868a.75.75 0 000-.75L7.839 7.758zM9.138 12.993c-.235.408-.039.934.43.984a4 4 0 004.094-2.364c.19-.43-.168-.863-.637-.863h-2.158a.75.75 0 00-.65.375l-1.08 1.868z"
+          />
+          <path
+            fill-rule="evenodd"
+            d="M14.13 4.347l.644-1.117a.75.75 0 00-1.299-.75l-.644 1.116a6.954 6.954 0 00-2.081-.556V1.75a.75.75 0 00-1.5 0v1.29a6.954 6.954 0 00-2.081.556L6.525 2.48a.75.75 0 10-1.3.75l.645 1.117A7.04 7.04 0 004.347 5.87L3.23 5.225a.75.75 0 10-.75 1.3l1.116.644A6.954 6.954 0 003.04 9.25H1.75a.75.75 0 000 1.5h1.29a6.954 6.954 0 00.556 2.081l-1.116.645a.75.75 0 10.75 1.298l1.117-.644a7.04 7.04 0 001.523 1.523l-.645 1.117a.75.75 0 101.3.75l.644-1.116a6.954 6.954 0 002.081.556v1.29a.75.75 0 001.5 0v-1.29a6.954 6.954 0 002.081-.556l.645 1.116a.75.75 0 001.299-.75l-.645-1.117a7.042 7.042 0 001.523-1.523l1.117.644a.75.75 0 00.75-1.298l-1.116-.645a6.954 6.954 0 00.556-2.081h1.29a.75.75 0 000-1.5h-1.29a6.954 6.954 0 00-.556-2.081l1.116-.644a.75.75 0 00-.75-1.3l-1.117.645a7.04 7.04 0 00-1.524-1.523zM10 4.5a5.475 5.475 0 00-2.781.754A5.527 5.527 0 005.254 7.22 5.478 5.478 0 004.5 10c0 1.036.286 2.007.781 2.781a5.527 5.527 0 001.966 1.965A5.478 5.478 0 0010 15.5a5.475 5.475 0 002.781-.754 5.527 5.527 0 001.965-1.965c.495-.774.754-1.745.754-2.781 0-1.036-.259-2.007-.754-2.781a5.527 5.527 0 00-1.965-1.965A5.475 5.475 0 0010 4.5z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        리프레시
+      </button>
     </div>
 
     <!-- Vue Flow Container -->
@@ -407,6 +425,7 @@
 
   import { storeToRefs } from 'pinia';
   import { useAuthStore } from '@/stores/auth';
+  import dagre from 'dagre';
 
   const authStore = useAuthStore();
   const { userInfo, userStngInfo } = storeToRefs(authStore);
@@ -3786,6 +3805,73 @@
     }
   };
 
+  // 🔥 자동 레이아웃 함수 (dagre 사용)
+  const autoLayoutNodes = async () => {
+    if (nodes.value.length === 0) {
+      alert('패널에 노드가 없습니다.');
+      return;
+    }
+
+    console.log('🎨 [autoLayoutNodes] 자동 레이아웃 시작');
+
+    // dagre 그래프 생성
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+    // 그래프 레이아웃 설정
+    dagreGraph.setGraph({
+      rankdir: 'TB', // Top to Bottom (상단에서 하단으로)
+      align: 'UL', // 정렬 방식
+      nodesep: 100, // 노드 간 수평 간격
+      ranksep: 150, // 계층 간 수직 간격
+      marginx: 50, // 좌우 여백
+      marginy: 50, // 상하 여백
+    });
+
+    // 노드 크기 설정 (TermNode의 실제 크기에 맞춰 조정)
+    const nodeWidth = 250;
+    const nodeHeight = 80;
+
+    // 모든 노드를 dagre 그래프에 추가
+    nodes.value.forEach((node) => {
+      dagreGraph.setNode(node.id, {
+        width: nodeWidth,
+        height: nodeHeight,
+      });
+    });
+
+    // 모든 엣지를 dagre 그래프에 추가
+    edges.value.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    // dagre 레이아웃 계산
+    dagre.layout(dagreGraph);
+
+    // 계산된 위치로 노드 업데이트
+    nodes.value = nodes.value.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      };
+    });
+
+    // 레이아웃 적용 후 화면에 맞춰 조정
+    await nextTick();
+    setTimeout(() => {
+      fitView({
+        padding: 0.2, // 20% 여백
+        duration: 300, // 애니메이션 시간 (ms)
+      });
+    }, 100);
+
+    console.log('✅ [autoLayoutNodes] 자동 레이아웃 완료');
+  };
+
   const handleContainerClick = (event) => {
     if (!isAddTermMode.value) return;
 
@@ -4824,6 +4910,12 @@
       background: #fef2f2;
       border-color: #fca5a5;
       color: #dc2626;
+    }
+
+    &.auto-layout:hover {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #16a34a;
     }
   }
 
